@@ -107,16 +107,35 @@ jobs:
 
       - name: Copy files to server
         run: |
+          # Ensure SERVER_PATH is set, default to /root/nfc-app if not
+          SERVER_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$SERVER_PATH" ]; then
+            SERVER_PATH="/root/nfc-app"
+          fi
+
+          echo "Deploying to: $SERVER_PATH"
+
           rsync -avz --delete -e "ssh -p 22" \
             docker-compose.yml \
             .env \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${SERVER_PATH}/
 
       - name: Deploy Backend via Docker Compose
         run: |
-          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          # Set default path if SERVER_PATH is empty
+          SERVER_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$SERVER_PATH" ]; then
+            SERVER_PATH="/root/nfc-app"
+          fi
+
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << EOF
           set -euo pipefail
-          cd ${{ secrets.SERVER_PATH }}
+
+          # Deployment path
+          DEPLOY_PATH="${SERVER_PATH}"
+
+          echo "Deploying backend to: \$DEPLOY_PATH"
+          cd "\$DEPLOY_PATH"
 
           # Check Docker Compose v2
           if ! docker compose version > /dev/null 2>&1; then
