@@ -74,8 +74,11 @@ jobs:
 
       - name: Create .env file
         run: |
+          # Get short SHA (first 7 characters) to match Docker metadata action
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
           cat <<EOF > .env
-          IMAGE_TAG=sha-${{ github.sha }}
+          IMAGE_TAG=sha-${SHORT_SHA}
           GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
 
           # Backend secrets
@@ -193,9 +196,10 @@ jobs:
       - name: Notify deployment status
         if: always()
         run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           if [ ${{ job.status }} == 'success' ]; then
             echo "✅ Backend deployment successful!"
-            echo "🐳 Image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-backend-nfc:sha-${{ github.sha }}"
+            echo "🐳 Image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-backend-nfc:sha-${SHORT_SHA}"
           else
             echo "❌ Backend deployment failed!"
           fi

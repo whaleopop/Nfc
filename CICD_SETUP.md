@@ -25,7 +25,12 @@ All Docker images are published to GitHub Container Registry (GHCR) with the fol
 - Backend: `ghcr.io/<username>/nfc-backend-nfc:<tag>`
 - Frontend: `ghcr.io/<username>/nfc-frontend-nfc:<tag>`
 
-Where `<username>` is your GitHub username and `<tag>` can be `latest`, `sha-<commit>`, or branch name.
+Where `<username>` is your GitHub username and `<tag>` can be:
+- `latest` - most recent build
+- `sha-<short-commit>` - first 7 characters of commit hash (e.g., `sha-024065c`)
+- Branch name (e.g., `main`)
+
+**Note:** The workflows use short SHA (7 characters) for tagging, not the full 40-character commit hash.
 
 ## Setup Instructions
 
@@ -205,7 +210,7 @@ IMAGE_TAG=latest  # or sha-<commit> or branch name
 
 # Examples of valid IMAGE_TAG values:
 # IMAGE_TAG=latest                                       # Latest build
-# IMAGE_TAG=sha-abc123def456...                          # Specific commit
+# IMAGE_TAG=sha-024065c                                  # Specific commit (short SHA - 7 chars)
 # IMAGE_TAG=main                                         # Main branch
 
 # Pull and run from GHCR
@@ -280,8 +285,9 @@ echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdi
 docker pull ghcr.io/whaleopop/nfc-backend-nfc:latest
 docker pull ghcr.io/whaleopop/nfc-frontend-nfc:latest
 
-# Pull specific commit
-docker pull ghcr.io/whaleopop/nfc-backend-nfc:sha-abc123def456...
+# Pull specific commit (short SHA - first 7 characters)
+docker pull ghcr.io/whaleopop/nfc-backend-nfc:sha-024065c
+docker pull ghcr.io/whaleopop/nfc-frontend-nfc:sha-024065c
 ```
 
 ### Clean Up Old Images
