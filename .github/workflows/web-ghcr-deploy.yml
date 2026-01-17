@@ -17,7 +17,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: nfc-medical-app
+  IMAGE_NAME: nfc
 
 jobs:
   build-frontend:
@@ -41,13 +41,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend-nfc
           tags: |
             type=raw,value=latest
             type=sha
             type=ref,event=branch
           labels: |
-            org.opencontainers.image.title=${{ env.IMAGE_NAME }}-frontend
+            org.opencontainers.image.title=${{ env.IMAGE_NAME }}-frontend-nfc
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
@@ -167,7 +167,7 @@ jobs:
           if [ ${{ job.status }} == 'success' ]; then
             echo "✅ Frontend deployment successful!"
             echo "🌐 Available at: ${{ secrets.WEB_URL }}"
-            echo "🐳 Image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}"
+            echo "🐳 Image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend-nfc:${{ github.sha }}"
           else
             echo "❌ Frontend deployment failed!"
           fi

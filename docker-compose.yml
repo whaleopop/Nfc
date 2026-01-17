@@ -30,7 +30,7 @@ services:
 
   # Django Backend
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-medical-app-backend:${IMAGE_TAG:-latest}}
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-backend-nfc:${IMAGE_TAG:-latest}}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -56,7 +56,7 @@ services:
 
   # Celery Worker
   celery:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-medical-app-backend:${IMAGE_TAG:-latest}}
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-backend-nfc:${IMAGE_TAG:-latest}}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -76,7 +76,7 @@ services:
 
   # Celery Beat (scheduled tasks)
   celery-beat:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-medical-app-backend:${IMAGE_TAG:-latest}}
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-backend-nfc:${IMAGE_TAG:-latest}}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -115,7 +115,7 @@ services:
 
   # Web Frontend (optional, for development)
   web:
-    image: ${WEB_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-medical-app-frontend:${IMAGE_TAG:-latest}}
+    image: ${WEB_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/nfc-frontend-nfc:${IMAGE_TAG:-latest}}
     build:
       context: ./web
       dockerfile: Dockerfile
