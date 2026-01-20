@@ -130,58 +130,126 @@ jobs:
             SERVER_PATH="/root/nfc-app"
           fi
 
-          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << EOF
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << 'ENDSSH'
           set -euo pipefail
 
           # Deployment path
-          DEPLOY_PATH="${SERVER_PATH}"
+          DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$DEPLOY_PATH" ]; then
+            DEPLOY_PATH="/root/nfc-app"
+          fi
 
-          echo "Deploying frontend to: \$DEPLOY_PATH"
-          cd "\$DEPLOY_PATH"
+          echo "🚀 Deploying frontend to: $DEPLOY_PATH"
+          cd "$DEPLOY_PATH"
+
+          # Check if Docker daemon is running
+          if ! docker info > /dev/null 2>&1; then
+            echo "❌ Docker daemon is not running!"
+            echo "Starting Docker daemon..."
+            sudo systemctl start docker || true
+            sleep 5
+
+            if ! docker info > /dev/null 2>&1; then
+              echo "❌ Failed to start Docker daemon"
+              exit 1
+            fi
+          fi
+          echo "✅ Docker daemon is running"
 
           # Check Docker Compose v2
           if ! docker compose version > /dev/null 2>&1; then
             echo "⚠️ Docker Compose v2 not found, installing..."
             curl -fsSL https://get.docker.com | sh
           fi
+          echo "✅ Docker Compose version: $(docker compose version)"
 
-          echo "Stopping and removing frontend container..."
+          echo "🛑 Stopping existing frontend container..."
           docker compose stop web || true
           docker compose rm -f web || true
 
-          echo "Login to GHCR..."
+          echo "🔐 Login to GHCR..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          echo "Pulling frontend image..."
+          echo "📥 Pulling latest frontend image..."
           docker compose pull web --quiet
 
-          echo "Starting frontend container..."
-          docker compose up -d web --force-recreate --pull always
+          echo "🚀 Starting frontend container..."
+          docker compose up -d web --force-recreate
 
-          echo "Container status:"
+          echo "⏳ Waiting for frontend container to be healthy..."
+          max_wait=30
+          counter=0
+          until [ "$(docker inspect -f '{{.State.Status}}' nfc_web 2>/dev/null)" == "running" ]; do
+            counter=$((counter + 1))
+            if [ $counter -gt $max_wait ]; then
+              echo "❌ Frontend container failed to start"
+              docker compose logs web
+              exit 1
+            fi
+            echo "Waiting for frontend container... ($counter/$max_wait)"
+            sleep 2
+          done
+          echo "✅ Frontend container is running"
+
+          echo "📋 Container status:"
           docker compose ps web
 
+          echo "📝 Recent frontend logs:"
+          docker compose logs web --tail 20
+
           echo "✅ Frontend deployed successfully"
-          EOF
+          ENDSSH
 
       - name: Health check
         run: |
           echo "🏥 Checking frontend health..."
-          max_attempts=5
+          max_attempts=10
           attempt=0
 
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f ${{ secrets.WEB_URL }} > /dev/null 2>&1; then
+            attempt=$((attempt + 1))
+
+            echo "⏳ Attempt $attempt/$max_attempts - checking frontend..."
+
+            if curl -f -s -o /dev/null -w "%{http_code}" ${{ secrets.WEB_URL }} 2>/dev/null | grep -q "200"; then
               echo "✅ Frontend is accessible!"
+              echo "🌐 Frontend URL: ${{ secrets.WEB_URL }}"
               exit 0
             fi
 
-            attempt=$((attempt + 1))
-            echo "⏳ Attempt $attempt/$max_attempts - waiting for frontend..."
-            sleep 5
+            if [ $attempt -lt $max_attempts ]; then
+              sleep 5
+            fi
           done
 
-          echo "⚠️ Frontend health check inconclusive (might still be working)"
+          echo "⚠️ Frontend health check failed after $max_attempts attempts"
+          echo "🔍 Checking frontend logs on server..."
+
+          # Get logs from server for debugging
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ secrets.SERVER_PATH }}
+            echo "📝 Frontend container logs:"
+            docker compose logs web --tail 50
+            echo "📋 Container status:"
+            docker compose ps web
+          ENDSSH
+
+          exit 1
+
+      - name: Cleanup old images
+        if: success()
+        run: |
+          echo "🧹 Cleaning up old Docker images on server..."
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            # Remove dangling images
+            docker image prune -f
+
+            # Remove old nfc-frontend images (keep latest 3)
+            docker images ghcr.io/${{ github.repository_owner }}/nfc-frontend-nfc --format "{{.ID}} {{.CreatedAt}}" | \
+              sort -rk 2 | tail -n +4 | awk '{print $1}' | xargs -r docker rmi -f || true
+
+            echo "✅ Cleanup completed"
+          ENDSSH
 
       - name: Notify deployment status
         if: always()

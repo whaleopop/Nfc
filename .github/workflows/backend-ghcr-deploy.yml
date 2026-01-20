@@ -131,67 +131,173 @@ jobs:
             SERVER_PATH="/root/nfc-app"
           fi
 
-          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << EOF
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << 'ENDSSH'
           set -euo pipefail
 
           # Deployment path
-          DEPLOY_PATH="${SERVER_PATH}"
+          DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$DEPLOY_PATH" ]; then
+            DEPLOY_PATH="/root/nfc-app"
+          fi
 
-          echo "Deploying backend to: \$DEPLOY_PATH"
-          cd "\$DEPLOY_PATH"
+          echo "🚀 Deploying backend to: $DEPLOY_PATH"
+          cd "$DEPLOY_PATH"
+
+          # Check if Docker daemon is running
+          if ! docker info > /dev/null 2>&1; then
+            echo "❌ Docker daemon is not running!"
+            echo "Starting Docker daemon..."
+            sudo systemctl start docker || true
+            sleep 5
+
+            if ! docker info > /dev/null 2>&1; then
+              echo "❌ Failed to start Docker daemon"
+              exit 1
+            fi
+          fi
+          echo "✅ Docker daemon is running"
 
           # Check Docker Compose v2
           if ! docker compose version > /dev/null 2>&1; then
             echo "⚠️ Docker Compose v2 not found, installing..."
             curl -fsSL https://get.docker.com | sh
           fi
+          echo "✅ Docker Compose version: $(docker compose version)"
 
-          echo "Stopping and removing backend containers..."
+          echo "🛑 Stopping existing backend containers..."
           docker compose stop backend celery celery-beat || true
           docker compose rm -f backend celery celery-beat || true
 
-          echo "Login to GHCR..."
+          echo "🔐 Login to GHCR..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          echo "Pulling backend image..."
+          echo "📥 Pulling latest backend image..."
           docker compose pull backend --quiet
 
-          echo "Starting Backend services..."
-          docker compose up -d backend celery celery-beat --force-recreate --pull always
+          echo "🐳 Starting database and redis (if not running)..."
+          docker compose up -d db redis
 
-          echo "Waiting for backend to start..."
+          echo "⏳ Waiting for database to be ready..."
+          max_wait=30
+          counter=0
+          until docker compose exec -T db pg_isready -U nfc_user > /dev/null 2>&1; do
+            counter=$((counter + 1))
+            if [ $counter -gt $max_wait ]; then
+              echo "❌ Database failed to start in time"
+              docker compose logs db
+              exit 1
+            fi
+            echo "Waiting for database... ($counter/$max_wait)"
+            sleep 2
+          done
+          echo "✅ Database is ready"
+
+          echo "🚀 Starting Backend services..."
+          docker compose up -d backend celery celery-beat --force-recreate
+
+          echo "⏳ Waiting for backend container to be healthy..."
+          max_wait=60
+          counter=0
+          until [ "$(docker inspect -f '{{.State.Status}}' nfc_backend 2>/dev/null)" == "running" ]; do
+            counter=$((counter + 1))
+            if [ $counter -gt $max_wait ]; then
+              echo "❌ Backend container failed to start"
+              docker compose logs backend
+              exit 1
+            fi
+            echo "Waiting for backend container... ($counter/$max_wait)"
+            sleep 2
+          done
+          echo "✅ Backend container is running"
+
+          # Additional wait for app initialization
+          echo "⏳ Waiting for Django to initialize..."
           sleep 10
 
-          echo "Running migrations..."
-          docker compose exec -T backend python manage.py migrate --noinput
+          echo "🔍 Verifying manage.py is accessible..."
+          if ! docker compose exec -T backend test -f /app/manage.py; then
+            echo "❌ manage.py not found in container!"
+            echo "Container contents:"
+            docker compose exec -T backend ls -la /app/
+            exit 1
+          fi
+          echo "✅ manage.py found"
 
-          echo "Collecting static files..."
-          docker compose exec -T backend python manage.py collectstatic --noinput
+          echo "📊 Running database migrations..."
+          if ! docker compose exec -T backend python manage.py migrate --noinput; then
+            echo "❌ Migrations failed!"
+            docker compose logs backend --tail 50
+            exit 1
+          fi
+          echo "✅ Migrations completed"
 
-          echo "Container status:"
+          echo "🎨 Collecting static files..."
+          if ! docker compose exec -T backend python manage.py collectstatic --noinput; then
+            echo "⚠️ Static files collection failed (non-critical)"
+            docker compose logs backend --tail 20
+          else
+            echo "✅ Static files collected"
+          fi
+
+          echo "📋 Container status:"
           docker compose ps backend celery celery-beat
 
+          echo "📝 Recent backend logs:"
+          docker compose logs backend --tail 20
+
           echo "✅ Backend deployed successfully"
-          EOF
+          ENDSSH
 
       - name: Health check
         run: |
           echo "🏥 Checking backend health..."
-          max_attempts=10
+          max_attempts=15
           attempt=0
 
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f ${{ secrets.BACKEND_URL }}/api/health/ > /dev/null 2>&1; then
+            attempt=$((attempt + 1))
+
+            echo "⏳ Attempt $attempt/$max_attempts - checking backend..."
+
+            if curl -f -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/api/health/ 2>/dev/null | grep -q "200"; then
               echo "✅ Backend is healthy!"
+              echo "📍 Backend URL: ${{ secrets.BACKEND_URL }}/api/health/"
               exit 0
             fi
 
-            attempt=$((attempt + 1))
-            echo "⏳ Attempt $attempt/$max_attempts - waiting for backend..."
-            sleep 5
+            if [ $attempt -lt $max_attempts ]; then
+              sleep 6
+            fi
           done
 
-          echo "⚠️ Backend health check inconclusive"
+          echo "⚠️ Backend health check failed after $max_attempts attempts"
+          echo "🔍 Checking backend logs on server..."
+
+          # Get logs from server for debugging
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ secrets.SERVER_PATH }}
+            echo "📝 Backend container logs:"
+            docker compose logs backend --tail 50
+            echo "📋 Container status:"
+            docker compose ps
+          ENDSSH
+
+          exit 1
+
+      - name: Cleanup old images
+        if: success()
+        run: |
+          echo "🧹 Cleaning up old Docker images on server..."
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            # Remove dangling images
+            docker image prune -f
+
+            # Remove old nfc-backend images (keep latest 3)
+            docker images ghcr.io/${{ github.repository_owner }}/nfc-backend-nfc --format "{{.ID}} {{.CreatedAt}}" | \
+              sort -rk 2 | tail -n +4 | awk '{print $1}' | xargs -r docker rmi -f || true
+
+            echo "✅ Cleanup completed"
+          ENDSSH
 
       - name: Notify deployment status
         if: always()
