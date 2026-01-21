@@ -172,7 +172,7 @@ services:
     container_name: nfc_web
     restart: always
     ports:
-      - "3000:80"
+      - "8080:80"
     environment:
       - NODE_ENV=${NODE_ENV:-production}
     networks:
