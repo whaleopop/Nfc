@@ -2,6 +2,7 @@ import axios from 'axios'
 
 // Базовый URL API из environment переменных
 // VITE_API_URL должен быть полным URL с протоколом: https://testapi.soldium.ru/api
+// Переменная устанавливается при сборке из GitHub Secrets
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 // Создаем инстанс axios с базовой конфигурацией
