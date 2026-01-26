@@ -18,11 +18,10 @@ git add .
 git commit -m "🎉 Release v1.0.0 - Complete Frontend Implementation
 
 - Add complete web frontend with all pages
-- Fix workflows to properly handle existing containers
-- Backend workflow now skips DB/Redis (managed separately)
+- Fix workflows: smart container check + start only needed services
+- Backend workflow intelligently manages db/redis/backend
 - Remove health checks from workflows for faster deployment
 - Add VERSION, CHANGELOG, and release documentation
-- Update API URL configuration
 "
 
 # 3. Пуш (запустит все workflows!)

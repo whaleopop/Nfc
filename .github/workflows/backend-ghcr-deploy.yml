@@ -224,14 +224,17 @@ jobs:
           docker compose pull backend --quiet
 
           echo "🔍 Checking if db and redis containers exist..."
-          if docker ps | grep -q nfc_postgres && docker ps | grep -q nfc_redis; then
-            echo "✅ DB and Redis are running, using existing containers"
-            # They exist and are running, so compose will just link to them
-            echo "🚀 Starting Backend services..."
+          DB_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_postgres$" || true)
+          REDIS_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_redis$" || true)
+
+          if [ "$DB_RUNNING" -eq 1 ] && [ "$REDIS_RUNNING" -eq 1 ]; then
+            echo "✅ DB and Redis are already running"
+            echo "🚀 Starting only Backend services..."
             docker compose up -d backend celery celery-beat --force-recreate
           else
-            echo "⚠️ DB or Redis not running, starting all services..."
-            docker compose up -d
+            echo "⚠️ DB or Redis not running, starting backend+db+redis (NOT web)..."
+            # Start ONLY backend services and their dependencies, exclude web
+            docker compose up -d db redis backend celery celery-beat --force-recreate
           fi
 
           echo "⏳ Waiting for backend container to start (up to 120 seconds)..."
