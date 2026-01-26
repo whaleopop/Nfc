@@ -22,7 +22,7 @@ urlpatterns = [
 
     # API Endpoints
     path('api/auth/', include('apps.authentication.urls')),
-    path('api/profile/', include('apps.profiles.urls')),
+    path('api/profiles/', include('apps.profiles.urls')),
     path('api/nfc/', include('apps.nfc.urls')),
     path('api/audit/', include('apps.audit.urls')),
 ]
