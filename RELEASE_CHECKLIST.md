@@ -19,7 +19,7 @@ git commit -m "🎉 Release v1.0.0 - Complete Frontend Implementation
 
 - Add complete web frontend with all pages
 - Fix workflows to properly handle existing containers
-- Add smart container check for DB/Redis (prevents conflicts)
+- Backend workflow now skips DB/Redis (managed separately)
 - Remove health checks from workflows for faster deployment
 - Add VERSION, CHANGELOG, and release documentation
 - Update API URL configuration

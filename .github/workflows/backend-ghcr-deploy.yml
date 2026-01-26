@@ -223,46 +223,8 @@ jobs:
           echo "📥 Pulling latest backend image..."
           docker compose pull backend --quiet
 
-          echo "🔍 Checking database and redis status..."
-          # Start existing containers if they're stopped, don't try to create new ones
-          if docker ps -a --format '{{.Names}}' | grep -q '^nfc_postgres$'; then
-            if ! docker ps --format '{{.Names}}' | grep -q '^nfc_postgres$'; then
-              echo "📦 Starting existing postgres container..."
-              docker start nfc_postgres
-            else
-              echo "✅ Postgres is already running"
-            fi
-          else
-            echo "📦 Creating postgres container..."
-            docker compose up -d db --no-recreate || docker compose up -d db
-          fi
-
-          if docker ps -a --format '{{.Names}}' | grep -q '^nfc_redis$'; then
-            if ! docker ps --format '{{.Names}}' | grep -q '^nfc_redis$'; then
-              echo "📦 Starting existing redis container..."
-              docker start nfc_redis
-            else
-              echo "✅ Redis is already running"
-            fi
-          else
-            echo "📦 Creating redis container..."
-            docker compose up -d redis --no-recreate || docker compose up -d redis
-          fi
-
-          echo "⏳ Waiting for database to be ready..."
-          max_wait=30
-          counter=0
-          until docker compose exec -T db pg_isready -U nfc_user > /dev/null 2>&1; do
-            counter=$((counter + 1))
-            if [ $counter -gt $max_wait ]; then
-              echo "❌ Database failed to start in time"
-              docker compose logs db
-              exit 1
-            fi
-            echo "Waiting for database... ($counter/$max_wait)"
-            sleep 2
-          done
-          echo "✅ Database is ready"
+          echo "ℹ️ Note: Database and Redis should be managed separately"
+          echo "   Workflow will NOT touch db/redis containers"
 
           echo "🚀 Starting Backend services..."
           docker compose up -d backend celery celery-beat --force-recreate
