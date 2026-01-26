@@ -223,8 +223,9 @@ jobs:
           echo "📥 Pulling latest backend image..."
           docker compose pull backend --quiet
 
-          echo "🐳 Starting database and redis (if not running)..."
-          docker compose up -d db redis --force-recreate || docker compose up -d db redis
+          echo "🐳 Ensuring database and redis are running..."
+          # Don't recreate - just start if stopped, use existing if running
+          docker compose up -d db redis --no-recreate
 
           echo "⏳ Waiting for database to be ready..."
           max_wait=30

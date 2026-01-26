@@ -51,6 +51,7 @@ All notable changes to the NFC Medical Platform will be documented in this file.
 - Fixed Docker Compose build args for frontend environment variables
 - Fixed CORS configuration for cross-origin requests
 - Fixed GitHub Actions workflows to properly remove old containers before deployment
+- Fixed backend workflow to not recreate database and Redis containers (preserves data)
 
 #### Backend
 - Existing Django REST API with JWT authentication
