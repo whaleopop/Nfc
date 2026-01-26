@@ -223,19 +223,24 @@ jobs:
           echo "📥 Pulling latest backend image..."
           docker compose pull backend --quiet
 
-          echo "🔍 Checking if db and redis containers exist..."
-          DB_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_postgres$" || true)
-          REDIS_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_redis$" || true)
+          echo "🚀 Starting Backend services (--no-deps to avoid db/redis conflicts)..."
+          # ALWAYS use --no-deps to prevent compose from creating db/redis
+          docker compose up -d --no-deps backend celery celery-beat --force-recreate
 
-          if [ "$DB_RUNNING" -eq 1 ] && [ "$REDIS_RUNNING" -eq 1 ]; then
-            echo "✅ DB and Redis are already running"
-            echo "🚀 Starting only Backend services..."
-            docker compose up -d backend celery celery-beat --force-recreate
+          echo "🔌 Connecting backend containers to network..."
+          # Determine network name (could be nfc_nfc_network or nfc_network)
+          NETWORK_NAME=$(docker network ls --format '{{.Name}}' | grep 'nfc.*network' | head -n1)
+          if [ -z "$NETWORK_NAME" ]; then
+            NETWORK_NAME="nfc_network"
+            echo "   Creating network: $NETWORK_NAME"
+            docker network create $NETWORK_NAME || true
           else
-            echo "⚠️ DB or Redis not running, starting backend+db+redis (NOT web)..."
-            # Start ONLY backend services and their dependencies, exclude web
-            docker compose up -d db redis backend celery celery-beat --force-recreate
+            echo "   Using network: $NETWORK_NAME"
           fi
+
+          docker network connect $NETWORK_NAME nfc_backend 2>/dev/null || echo "   backend already connected"
+          docker network connect $NETWORK_NAME nfc_celery 2>/dev/null || echo "   celery already connected"
+          docker network connect $NETWORK_NAME nfc_celery_beat 2>/dev/null || echo "   celery_beat already connected"
 
           echo "⏳ Waiting for backend container to start (up to 120 seconds)..."
           max_wait=120

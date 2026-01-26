@@ -38,28 +38,28 @@ docker rm -f nfc_web 2>/dev/null || true
 - ❌ Добавляют лишнее время к деплою
 - ✅ Проверка контейнеров через `docker compose ps` достаточна
 
-### 2. Умная проверка БД и Redis
-Workflow проверяет существуют ли БД и Redis, и запускает только нужное:
+### 2. Backend БЕЗ зависимостей + ручное подключение к сети
+Workflow использует `--no-deps` ВСЕГДА и подключает к сети вручную:
 
 ```bash
-# Проверяем контейнеры правильным способом
-DB_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_postgres$" || true)
-REDIS_RUNNING=$(docker ps --format '{{.Names}}' | grep -c "^nfc_redis$" || true)
+# Запускаем БЕЗ зависимостей (не трогаем db/redis)
+docker compose up -d --no-deps backend celery celery-beat --force-recreate
 
-if [ "$DB_RUNNING" -eq 1 ] && [ "$REDIS_RUNNING" -eq 1 ]; then
-  # БД и Redis запущены - обновляем только backend
-  docker compose up -d backend celery celery-beat --force-recreate
-else
-  # БД или Redis не запущены - запускаем их + backend (НЕ web!)
-  docker compose up -d db redis backend celery celery-beat --force-recreate
-fi
+# Находим сеть где находятся db и redis
+NETWORK_NAME=$(docker network ls --format '{{.Name}}' | grep 'nfc.*network' | head -n1)
+
+# Подключаем backend к этой сети
+docker network connect $NETWORK_NAME nfc_backend 2>/dev/null || true
+docker network connect $NETWORK_NAME nfc_celery 2>/dev/null || true
+docker network connect $NETWORK_NAME nfc_celery_beat 2>/dev/null || true
 ```
 
-**Ключевая логика:**
-- ✅ Проверяет существующие контейнеры правильно
-- ✅ Если БД работает → обновляет только backend (использует существующую БД)
-- ✅ Если БД не работает → запускает db+redis+backend (НЕ трогает web!)
-- ✅ Никогда не запускает `docker compose up -d` без указания сервисов
+**Почему это работает:**
+- ✅ `--no-deps` предотвращает создание db/redis (игнорирует depends_on)
+- ✅ Backend запускается изолированно без сети
+- ✅ Вручную подключаем к сети где находятся db/redis
+- ✅ Backend может обращаться к `db` и `redis` хостам
+- ✅ Никаких конфликтов имён контейнеров!
 
 ## Что теперь делать
 
