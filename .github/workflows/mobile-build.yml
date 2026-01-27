@@ -1,0 +1,184 @@
+name: Mobile Build (Android & iOS)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-build.yml'
+
+jobs:
+  # First job: Bump version and prepare
+  prepare:
+    name: 📦 Prepare Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+      new_build: ${{ steps.version.outputs.new_build }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Extract version from pubspec.yaml
+        id: version
+        working-directory: mobile
+        run: |
+          LINE=$(grep '^version:' pubspec.yaml)
+          VERSION=$(echo $LINE | sed 's/version: //; s/+.*//')
+          BUILD=$(echo $LINE | sed 's/.*+//')
+          NEW_BUILD=$((BUILD + 1))
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "new_build=$NEW_BUILD" >> $GITHUB_OUTPUT
+          echo "Current: $VERSION+$BUILD, New: $VERSION+$NEW_BUILD"
+        shell: bash
+
+      - name: Bump build number in pubspec.yaml
+        working-directory: mobile
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.version.outputs.version }}+${{ steps.version.outputs.new_build }}/" pubspec.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "⬆️ Bump mobile build number to ${{ steps.version.outputs.new_build }}"
+
+          # Push with retry
+          for i in {1..5}; do
+            git pull --rebase origin main && git push && break || {
+              echo "Push attempt $i failed, retrying..."
+              sleep 2
+            }
+          done
+        shell: bash
+
+  # Second job: Build Android (depends on prepare)
+  build-android:
+    name: 🤖 Build Android
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build Android APK
+        working-directory: mobile
+        run: flutter build apk --release
+
+      - name: Build Android App Bundle
+        working-directory: mobile
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+
+      - name: Upload APK to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: mobile/build/app/outputs/flutter-apk/app-release.apk
+          asset_name: nfc-medical-android-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}.apk
+          tag: mobile-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}
+          release_name: "Mobile v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}"
+          body: "Auto-generated release for Mobile build v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}"
+          overwrite: true
+          make_latest: true
+
+      - name: Upload AAB to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: mobile/build/app/outputs/bundle/release/app-release.aab
+          asset_name: nfc-medical-android-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}.aab
+          tag: mobile-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}
+          overwrite: true
+
+  # Third job: Build iOS (depends on prepare)
+  build-ios:
+    name: 🍎 Build iOS
+    needs: prepare
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Update CocoaPods repo
+        run: pod repo update
+        working-directory: mobile/ios
+
+      - name: Build iOS app (no codesign)
+        working-directory: mobile
+        run: flutter build ios --no-codesign
+
+      - name: Prepare IPA
+        working-directory: mobile/build/ios/iphoneos
+        run: |
+          mkdir Payload
+          mv Runner.app Payload/
+          zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: mobile/build/ios/iphoneos/FlutterIpaExport.ipa
+
+      - name: Upload IPA to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: mobile/build/ios/iphoneos/FlutterIpaExport.ipa
+          asset_name: nfc-medical-ios-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}.ipa
+          tag: mobile-v${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.new_build }}
+          overwrite: true
