@@ -169,20 +169,30 @@ jobs:
 
       - name: Build iOS app (no codesign)
         working-directory: mobile
-        run: flutter build ipa --release --no-codesign
+        run: flutter build ios --release --no-codesign
 
       - name: Verify build output
         working-directory: mobile
         run: |
-          ls -la build/ios/ipa/ || echo "IPA directory not found"
+          echo "Checking build output directories:"
+          ls -la build/ios/ || echo "ios directory not found"
           ls -la build/ios/iphoneos/ || echo "iphoneos directory not found"
+          if [ -d "build/ios/iphoneos/Runner.app" ]; then
+            echo "Runner.app found!"
+            ls -la build/ios/iphoneos/Runner.app
+          else
+            echo "Runner.app NOT found"
+            exit 1
+          fi
 
       - name: Prepare IPA
-        working-directory: mobile/build/ios/iphoneos
+        working-directory: mobile
         run: |
+          cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
           zip -qq -r -9 FlutterIpaExport.ipa Payload
+          ls -la FlutterIpaExport.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
