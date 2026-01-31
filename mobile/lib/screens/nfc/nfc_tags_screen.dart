@@ -36,35 +36,30 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
 
   Future<void> _checkNFCAvailability() async {
     try {
-<<<<<<< HEAD
       _addLog('Checking NFC availability...');
       final availability = await NfcManager.instance.checkAvailability();
       _addLog('NFC availability result: $availability');
       _addLog('NFC availability index: ${availability.index}');
       _addLog('NFC availability name: ${availability.name}');
 
-=======
-      final availability = await NfcManager.instance.checkAvailability();
-      print('NFC availability: $availability (index: ${availability.index})');
->>>>>>> parent of 4b147bd (Add detailed NFC availability logging and user feedback)
       setState(() {
         // Only available (index = 2) means NFC is ready to use
         // notSupported = 0, disabled = 1, available = 2
         _isNFCAvailable = availability.index == 2;
       });
 
-      if (availability.index == 1) {
-        // NFC is disabled
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('NFC is disabled. Please enable it in settings.'),
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
+      String message = '';
+      switch (availability.index) {
+        case 0:
+          message = 'NFC is not supported on this device';
+          break;
+        case 1:
+          message = 'NFC is disabled. Please enable it in Settings → Connected devices → NFC';
+          break;
+        case 2:
+          message = 'NFC is available and ready';
+          break;
       }
-<<<<<<< HEAD
 
       _addLog('NFC status: $message');
 
@@ -87,13 +82,18 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
     } catch (e, stackTrace) {
       _addLog('NFC check error: $e');
       _addLog('Stack trace: $stackTrace');
-=======
-    } catch (e) {
-      print('NFC check error: $e');
->>>>>>> parent of 4b147bd (Add detailed NFC availability logging and user feedback)
       setState(() {
         _isNFCAvailable = false;
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error checking NFC: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
