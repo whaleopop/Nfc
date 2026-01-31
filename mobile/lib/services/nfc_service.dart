@@ -24,13 +24,22 @@ class NFCService {
   /// Register new NFC tag
   Future<Map<String, dynamic>> registerTag(String tagUid) async {
     try {
+      print('Registering NFC tag: $tagUid');
+      print('Endpoint: ${ApiConfig.nfcRegister}');
+
+      final requestData = {
+        'tag_uid': tagUid,
+        'tag_type': 'NTAG215',
+      };
+      print('Request data: $requestData');
+
       final response = await _api.post(
         ApiConfig.nfcRegister,
-        data: {
-          'tag_uid': tagUid,
-          'tag_type': 'NTAG215',
-        },
+        data: requestData,
       );
+
+      print('Register response status: ${response.statusCode}');
+      print('Register response data: ${response.data}');
 
       if (response.statusCode == 201) {
         return {
@@ -39,8 +48,18 @@ class NFCService {
         };
       }
       return {'success': false, 'error': 'Failed to register tag'};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
+    } on Exception catch (e) {
+      print('Register tag error: $e');
+      print('Error type: ${e.runtimeType}');
+
+      String errorMessage = e.toString();
+
+      // Try to extract meaningful error from Dio exception
+      if (e.toString().contains('400')) {
+        errorMessage = 'Bad request - check if tag format is correct';
+      }
+
+      return {'success': false, 'error': errorMessage};
     }
   }
 
