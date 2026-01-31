@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/auth_provider.dart';
+import 'providers/profile_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/nfc/nfc_tags_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +28,7 @@ class NFCMedicalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ],
       child: MaterialApp(
         title: 'NFC Medical',
@@ -48,6 +52,8 @@ class NFCMedicalApp extends StatelessWidget {
         routes: {
           '/login': (context) => const LoginScreen(),
           '/home': (context) => const HomeScreen(),
+          '/profile': (context) => const ProfileScreen(),
+          '/nfc-tags': (context) => const NFCTagsScreen(),
         },
       ),
     );
@@ -196,12 +202,10 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 48),
             ElevatedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('NFC scanning feature coming soon')),
-                );
+                Navigator.of(context).pushNamed('/nfc-tags');
               },
               icon: const Icon(Icons.nfc),
-              label: const Text('Scan NFC Tag'),
+              label: const Text('My NFC Tags'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
@@ -209,9 +213,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile management coming soon')),
-                );
+                Navigator.of(context).pushNamed('/profile');
               },
               icon: const Icon(Icons.person),
               label: const Text('My Profile'),
