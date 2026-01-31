@@ -42,33 +42,31 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       _addLog('NFC availability index: ${availability.index}');
       _addLog('NFC availability name: ${availability.name}');
 
+      // Check by name, not index, as different platforms may have different enum orders
+      final isEnabled = availability.name == 'enabled' || availability.name == 'available';
+      final isDisabled = availability.name == 'disabled';
+
       setState(() {
-        // Only available (index = 2) means NFC is ready to use
-        // notSupported = 0, disabled = 1, available = 2
-        _isNFCAvailable = availability.index == 2;
+        _isNFCAvailable = isEnabled;
       });
 
       String message = '';
-      switch (availability.index) {
-        case 0:
-          message = 'NFC is not supported on this device';
-          break;
-        case 1:
-          message = 'NFC is disabled. Please enable it in Settings → Connected devices → NFC';
-          break;
-        case 2:
-          message = 'NFC is available and ready';
-          break;
+      if (isEnabled) {
+        message = 'NFC is available and ready';
+      } else if (isDisabled) {
+        message = 'NFC is disabled. Please enable it in Settings → Connected devices → NFC';
+      } else {
+        message = 'NFC is not supported on this device';
       }
 
       _addLog('NFC status: $message');
 
-      if (availability.index != 2 && mounted) {
+      if (!isEnabled && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             duration: const Duration(seconds: 5),
-            action: availability.index == 1
+            action: isDisabled
                 ? SnackBarAction(
                     label: 'Open Settings',
                     onPressed: () {
