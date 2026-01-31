@@ -1,6 +1,6 @@
 /// User model
 class User {
-  final int id;
+  final String id;  // UUID from backend
   final String email;
   final String firstName;
   final String lastName;
@@ -20,7 +20,7 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
+      id: json['id'].toString(),
       email: json['email'],
       firstName: json['first_name'],
       lastName: json['last_name'],

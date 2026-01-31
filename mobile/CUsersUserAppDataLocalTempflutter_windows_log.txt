@@ -1,0 +1,21 @@
+Launching lib\main.dart on Windows in debug mode...
+Building Windows application...                                 
+Nuget.exe not found, trying to download or use cached version.
+Building Windows application...                                    48,0s
+√ Built build\windows\x64\runner\Debug\nfc_medical.exe
+Syncing files to device Windows...                                 209ms
+
+Flutter run key commands.
+r Hot reload. 
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on Windows is available at: http://127.0.0.1:55827/mla136TK0bw=/
+The Flutter DevTools debugger and profiler on Windows is available at: http://127.0.0.1:9101?uri=http://127.0.0.1:55827/mla136TK0bw=/
+Attempting login to: /api/auth/login/
+Login response status: 200
+Login response data: {access: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY5ODcwNTE1LCJpYXQiOjE3Njk4Njk2MTUsImp0aSI6Ijk0YTY4MTM5MjEwNzRjZWY4MmNiZjlkMmViYzQzYThkIiwidXNlcl9pZCI6IjFhNzJjNzFiLTM1NWUtNGM3Mi1hNmJlLTNlZGQwODc4NmY1YiJ9.-n_VGE4I8UFzwsgArbG1_mf6t232Mc47P-FrMZHhcJw, refresh: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc2OTk1NjAxNSwiaWF0IjoxNzY5ODY5NjE1LCJqdGkiOiI3ODA1YTEyMjA5Zjg0ZTNjYmMyNWIzNWI0NTdhODI5OCIsInVzZXJfaWQiOiIxYTcyYzcxYi0zNTVlLTRjNzItYTZiZS0zZWRkMDg3ODZmNWIifQ.7ZWxm1TeIOGBPawPYxC7PMWC4zwLaJcrCAvVZ3S9pJk, user: {id: 1a72c71b-355e-4c72-a6be-3edd08786f5b, email: al-agabani-kit@yandex.ru, phone: +7 969 348 57 23, first_name: Кит, last_name: Аль-Агабани, middle_name: Наэлевич, full_name: Аль-Агабани Кит Наэлевич, role: PATIENT, is_verified: false, two_factor_enabled: false, date_joined: 2026-01-26T20:27:29.945597+03:00, last_login: 2026-01-31T17:26:55.418004+03:00}}
+Lost connection to device.

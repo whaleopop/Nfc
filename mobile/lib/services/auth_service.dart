@@ -9,6 +9,7 @@ class AuthService {
   /// Login user
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('Attempting login to: ${ApiConfig.login}');
       final response = await _api.post(
         ApiConfig.login,
         data: {
@@ -16,6 +17,9 @@ class AuthService {
           'password': password,
         },
       );
+
+      print('Login response status: ${response.statusCode}');
+      print('Login response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -28,12 +32,30 @@ class AuthService {
       }
       return {'success': false, 'error': 'Login failed'};
     } on DioException catch (e) {
-      return {
-        'success': false,
-        'error': e.response?.data['detail'] ?? 'Login failed',
-      };
+      print('Login DioException: ${e.response?.statusCode}');
+      print('Login error data: ${e.response?.data}');
+
+      String errorMessage = 'Login failed';
+      if (e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map) {
+          errorMessage = data['detail']?.toString() ??
+                        data['error']?.toString() ??
+                        data.values.first.toString();
+        } else if (data is String) {
+          errorMessage = data;
+        }
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+                 e.type == DioExceptionType.receiveTimeout) {
+        errorMessage = 'Connection timeout';
+      } else if (e.type == DioExceptionType.connectionError) {
+        errorMessage = 'Connection error. Check your internet connection.';
+      }
+
+      return {'success': false, 'error': errorMessage};
     } catch (e) {
-      return {'success': false, 'error': 'An error occurred'};
+      print('Login unexpected error: $e');
+      return {'success': false, 'error': 'An error occurred: $e'};
     }
   }
 
