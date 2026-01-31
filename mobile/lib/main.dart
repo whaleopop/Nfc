@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -7,7 +8,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Hive for local storage
-  await Hive.initFlutter();
+  if (!kIsWeb) {
+    await Hive.initFlutter();
+  }
+  // On web, Hive uses IndexedDB automatically without initFlutter()
 
   runApp(const NFCMedicalApp());
 }
