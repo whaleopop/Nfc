@@ -1,7 +1,7 @@
 /// API Configuration for NFC Medical Backend
 class ApiConfig {
   // Base URL - change this to your backend URL
-  static const String baseUrl = 'http://localhost:8000';
+  static const String baseUrl = 'https://testapi.soldium.ru';
 
   // API endpoints
   static const String apiPrefix = '/api';
