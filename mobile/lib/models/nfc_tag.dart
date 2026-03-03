@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// NFC Tag model matching Django backend
 class NFCTag {
-  final int? id;
+  final String? id;
   final String tagUid;
   final String status;
   final int scanCount;

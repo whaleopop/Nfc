@@ -69,6 +69,12 @@ function Profile() {
   const [medicationDialog, setMedicationDialog] = useState(false)
   const [contactDialog, setContactDialog] = useState(false)
 
+  // Editing states (null = adding new, object = editing existing)
+  const [editingAllergy, setEditingAllergy] = useState(null)
+  const [editingDisease, setEditingDisease] = useState(null)
+  const [editingMedication, setEditingMedication] = useState(null)
+  const [editingContact, setEditingContact] = useState(null)
+
   // Form data for dialogs
   const [newAllergy, setNewAllergy] = useState({ allergen: '', severity: 'MODERATE', reaction: '' })
   const [newDisease, setNewDisease] = useState({ disease_name: '', diagnosis_date: '', notes: '' })
@@ -158,21 +164,32 @@ function Profile() {
 
   const handleAddAllergy = async () => {
     try {
-      // Ensure profile exists before adding allergy
       if (!profile.id) {
         const profileResponse = await profileAPI.createProfile(profile)
         setProfile(profileResponse.data)
       }
-
-      const response = await profileAPI.addAllergy(newAllergy)
-      setAllergies([...allergies, response.data])
+      if (editingAllergy) {
+        const response = await profileAPI.updateAllergy(editingAllergy.id, newAllergy)
+        setAllergies(allergies.map((a) => (a.id === editingAllergy.id ? response.data : a)))
+        toast.success('Аллергия обновлена')
+      } else {
+        const response = await profileAPI.addAllergy(newAllergy)
+        setAllergies([...allergies, response.data])
+        toast.success('Аллергия добавлена')
+      }
       setAllergyDialog(false)
+      setEditingAllergy(null)
       setNewAllergy({ allergen: '', severity: 'MODERATE', reaction: '' })
-      toast.success('Аллергия добавлена')
     } catch (error) {
-      toast.error('Ошибка добавления аллергии')
+      toast.error('Ошибка сохранения аллергии')
       console.error(error)
     }
+  }
+
+  const handleEditAllergy = (allergy) => {
+    setEditingAllergy(allergy)
+    setNewAllergy({ allergen: allergy.allergen, severity: allergy.severity, reaction: allergy.reaction || '' })
+    setAllergyDialog(true)
   }
 
   const handleDeleteAllergy = async (id) => {
@@ -188,21 +205,32 @@ function Profile() {
 
   const handleAddDisease = async () => {
     try {
-      // Ensure profile exists before adding disease
       if (!profile.id) {
         const profileResponse = await profileAPI.createProfile(profile)
         setProfile(profileResponse.data)
       }
-
-      const response = await profileAPI.addChronicDisease(newDisease)
-      setDiseases([...diseases, response.data])
+      if (editingDisease) {
+        const response = await profileAPI.updateChronicDisease(editingDisease.id, newDisease)
+        setDiseases(diseases.map((d) => (d.id === editingDisease.id ? response.data : d)))
+        toast.success('Заболевание обновлено')
+      } else {
+        const response = await profileAPI.addChronicDisease(newDisease)
+        setDiseases([...diseases, response.data])
+        toast.success('Заболевание добавлено')
+      }
       setDiseaseDialog(false)
+      setEditingDisease(null)
       setNewDisease({ disease_name: '', diagnosis_date: '', notes: '' })
-      toast.success('Заболевание добавлено')
     } catch (error) {
-      toast.error('Ошибка добавления заболевания')
+      toast.error('Ошибка сохранения заболевания')
       console.error(error)
     }
+  }
+
+  const handleEditDisease = (disease) => {
+    setEditingDisease(disease)
+    setNewDisease({ disease_name: disease.disease_name, diagnosis_date: disease.diagnosis_date || '', notes: disease.notes || '' })
+    setDiseaseDialog(true)
   }
 
   const handleDeleteDisease = async (id) => {
@@ -218,21 +246,32 @@ function Profile() {
 
   const handleAddMedication = async () => {
     try {
-      // Ensure profile exists before adding medication
       if (!profile.id) {
         const profileResponse = await profileAPI.createProfile(profile)
         setProfile(profileResponse.data)
       }
-
-      const response = await profileAPI.addMedication(newMedication)
-      setMedications([...medications, response.data])
+      if (editingMedication) {
+        const response = await profileAPI.updateMedication(editingMedication.id, newMedication)
+        setMedications(medications.map((m) => (m.id === editingMedication.id ? response.data : m)))
+        toast.success('Препарат обновлён')
+      } else {
+        const response = await profileAPI.addMedication(newMedication)
+        setMedications([...medications, response.data])
+        toast.success('Препарат добавлен')
+      }
       setMedicationDialog(false)
+      setEditingMedication(null)
       setNewMedication({ medication_name: '', dosage: '', frequency: 'ONCE_DAILY', start_date: '' })
-      toast.success('Препарат добавлен')
     } catch (error) {
-      toast.error('Ошибка добавления препарата')
+      toast.error('Ошибка сохранения препарата')
       console.error(error)
     }
+  }
+
+  const handleEditMedication = (med) => {
+    setEditingMedication(med)
+    setNewMedication({ medication_name: med.medication_name, dosage: med.dosage || '', frequency: med.frequency || 'ONCE_DAILY', start_date: med.start_date || '' })
+    setMedicationDialog(true)
   }
 
   const handleDeleteMedication = async (id) => {
@@ -248,21 +287,32 @@ function Profile() {
 
   const handleAddContact = async () => {
     try {
-      // Ensure profile exists before adding contact
       if (!profile.id) {
         const profileResponse = await profileAPI.createProfile(profile)
         setProfile(profileResponse.data)
       }
-
-      const response = await profileAPI.addEmergencyContact(newContact)
-      setEmergencyContacts([...emergencyContacts, response.data])
+      if (editingContact) {
+        const response = await profileAPI.updateEmergencyContact(editingContact.id, newContact)
+        setEmergencyContacts(emergencyContacts.map((c) => (c.id === editingContact.id ? response.data : c)))
+        toast.success('Контакт обновлён')
+      } else {
+        const response = await profileAPI.addEmergencyContact(newContact)
+        setEmergencyContacts([...emergencyContacts, response.data])
+        toast.success('Контакт добавлен')
+      }
       setContactDialog(false)
+      setEditingContact(null)
       setNewContact({ full_name: '', relationship: 'OTHER', phone: '' })
-      toast.success('Контакт добавлен')
     } catch (error) {
-      toast.error('Ошибка добавления контакта')
+      toast.error('Ошибка сохранения контакта')
       console.error(error)
     }
+  }
+
+  const handleEditContact = (contact) => {
+    setEditingContact(contact)
+    setNewContact({ full_name: contact.full_name, relationship: contact.relationship || 'OTHER', phone: contact.phone || '' })
+    setContactDialog(true)
   }
 
   const handleDeleteContact = async (id) => {
@@ -421,6 +471,9 @@ function Profile() {
                             }
                           />
                           <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleEditAllergy(allergy)}>
+                              <EditIcon />
+                            </IconButton>
                             <IconButton
                               edge="end"
                               onClick={() => handleDeleteAllergy(allergy.id)}
@@ -466,6 +519,9 @@ function Profile() {
                             }
                           />
                           <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleEditDisease(disease)}>
+                              <EditIcon />
+                            </IconButton>
                             <IconButton edge="end" onClick={() => handleDeleteDisease(disease.id)}>
                               <DeleteIcon />
                             </IconButton>
@@ -502,6 +558,9 @@ function Profile() {
                             secondary={`${med.dosage} - ${med.frequency}`}
                           />
                           <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleEditMedication(med)}>
+                              <EditIcon />
+                            </IconButton>
                             <IconButton edge="end" onClick={() => handleDeleteMedication(med.id)}>
                               <DeleteIcon />
                             </IconButton>
@@ -538,6 +597,9 @@ function Profile() {
                             secondary={`${contact.relationship} - ${contact.phone}`}
                           />
                           <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleEditContact(contact)}>
+                              <EditIcon />
+                            </IconButton>
                             <IconButton edge="end" onClick={() => handleDeleteContact(contact.id)}>
                               <DeleteIcon />
                             </IconButton>
@@ -553,9 +615,9 @@ function Profile() {
         </Grid>
       </Container>
 
-      {/* Add Allergy Dialog */}
-      <Dialog open={allergyDialog} onClose={() => setAllergyDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Добавить аллергию</DialogTitle>
+      {/* Add/Edit Allergy Dialog */}
+      <Dialog open={allergyDialog} onClose={() => { setAllergyDialog(false); setEditingAllergy(null); setNewAllergy({ allergen: '', severity: 'MODERATE', reaction: '' }) }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingAllergy ? 'Редактировать аллергию' : 'Добавить аллергию'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -589,19 +651,16 @@ function Profile() {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setAllergyDialog(false)
-            setNewAllergy({ allergen: '', severity: 'MODERATE', reaction: '' })
-          }}>Отмена</Button>
+          <Button onClick={() => { setAllergyDialog(false); setEditingAllergy(null); setNewAllergy({ allergen: '', severity: 'MODERATE', reaction: '' }) }}>Отмена</Button>
           <Button onClick={handleAddAllergy} variant="contained">
-            Добавить
+            {editingAllergy ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add Disease Dialog */}
-      <Dialog open={diseaseDialog} onClose={() => setDiseaseDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Добавить заболевание</DialogTitle>
+      {/* Add/Edit Disease Dialog */}
+      <Dialog open={diseaseDialog} onClose={() => { setDiseaseDialog(false); setEditingDisease(null); setNewDisease({ disease_name: '', diagnosis_date: '', notes: '' }) }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingDisease ? 'Редактировать заболевание' : 'Добавить заболевание'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -631,24 +690,21 @@ function Profile() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setDiseaseDialog(false)
-            setNewDisease({ disease_name: '', diagnosis_date: '', notes: '' })
-          }}>Отмена</Button>
+          <Button onClick={() => { setDiseaseDialog(false); setEditingDisease(null); setNewDisease({ disease_name: '', diagnosis_date: '', notes: '' }) }}>Отмена</Button>
           <Button onClick={handleAddDisease} variant="contained">
-            Добавить
+            {editingDisease ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add Medication Dialog */}
+      {/* Add/Edit Medication Dialog */}
       <Dialog
         open={medicationDialog}
-        onClose={() => setMedicationDialog(false)}
+        onClose={() => { setMedicationDialog(false); setEditingMedication(null); setNewMedication({ medication_name: '', dosage: '', frequency: 'ONCE_DAILY', start_date: '' }) }}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Добавить препарат</DialogTitle>
+        <DialogTitle>{editingMedication ? 'Редактировать препарат' : 'Добавить препарат'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -693,19 +749,16 @@ function Profile() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setMedicationDialog(false)
-            setNewMedication({ medication_name: '', dosage: '', frequency: 'ONCE_DAILY', start_date: '' })
-          }}>Отмена</Button>
+          <Button onClick={() => { setMedicationDialog(false); setEditingMedication(null); setNewMedication({ medication_name: '', dosage: '', frequency: 'ONCE_DAILY', start_date: '' }) }}>Отмена</Button>
           <Button onClick={handleAddMedication} variant="contained">
-            Добавить
+            {editingMedication ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add Contact Dialog */}
-      <Dialog open={contactDialog} onClose={() => setContactDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Добавить контакт</DialogTitle>
+      {/* Add/Edit Contact Dialog */}
+      <Dialog open={contactDialog} onClose={() => { setContactDialog(false); setEditingContact(null); setNewContact({ full_name: '', relationship: 'OTHER', phone: '' }) }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingContact ? 'Редактировать контакт' : 'Добавить контакт'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -731,12 +784,9 @@ function Profile() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setContactDialog(false)
-            setNewContact({ full_name: '', relationship: 'OTHER', phone: '' })
-          }}>Отмена</Button>
+          <Button onClick={() => { setContactDialog(false); setEditingContact(null); setNewContact({ full_name: '', relationship: 'OTHER', phone: '' }) }}>Отмена</Button>
           <Button onClick={handleAddContact} variant="contained">
-            Добавить
+            {editingContact ? 'Сохранить' : 'Добавить'}
           </Button>
         </DialogActions>
       </Dialog>

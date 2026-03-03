@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../models/nfc_tag.dart';
 import '../../services/nfc_service.dart';
 import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
+import 'package:nfc_manager/ndef_record.dart';
 
 class NFCTagsScreen extends StatefulWidget {
   const NFCTagsScreen({super.key});
@@ -159,30 +162,82 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           NfcPollingOption.iso15693,
         },
         onDiscovered: (NfcTag tag) async {
-          // Generate a simple tag UID from tag data
-          // In production, you'd extract the actual UID from the tag
-          final tagUid = DateTime.now().millisecondsSinceEpoch.toRadixString(16).toUpperCase();
+          try {
+            // 1. Extract real UID from tag via NfcTagAndroid
+            String? tagUid;
+            final androidTag = NfcTagAndroid.from(tag);
+            if (androidTag != null) {
+              tagUid = androidTag.id
+                  .map((e) => e.toRadixString(16).padLeft(2, '0'))
+                  .join('')
+                  .toUpperCase();
+            }
 
-          await NfcManager.instance.stopSession();
+            if (tagUid == null || tagUid.isEmpty) {
+              await NfcManager.instance.stopSession();
+              if (mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Не удалось прочитать UID метки'), backgroundColor: Colors.red),
+                );
+              }
+              return;
+            }
 
-          if (mounted) {
-            Navigator.of(context).pop(); // Close scanning dialog
-          }
+            _addLog('Real tag UID: $tagUid');
 
-          final result = await _nfcService.registerTag(tagUid);
+            // 2. Register in backend
+            final result = await _nfcService.registerTag(tagUid);
 
-          if (mounted) {
             if (result['success']) {
+              // 3. Write emergency URL to tag as NDEF URI record
+              final emergencyUrl = 'https://testapi.soldium.ru/emergency/$tagUid';
+              final ndef = NdefAndroid.from(tag);
+              if (ndef != null && ndef.isWritable) {
+                try {
+                  // URI record: TNF=wellKnown, type='U', payload=[0x04, ...url without "https://"]
+                  final urlWithoutScheme = emergencyUrl.replaceFirst('https://', '');
+                  final payload = Uint8List.fromList([0x04, ...urlWithoutScheme.codeUnits]);
+                  final uriRecord = NdefRecord(
+                    typeNameFormat: TypeNameFormat.wellKnown,
+                    type: Uint8List.fromList([0x55]), // 'U'
+                    identifier: Uint8List(0),
+                    payload: payload,
+                  );
+                  await ndef.writeNdefMessage(NdefMessage(records: [uriRecord]));
+                  _addLog('URL written to tag: $emergencyUrl');
+                } catch (e) {
+                  _addLog('Warning: Could not write URL: $e');
+                }
+              } else {
+                _addLog('Warning: Tag is not NDEF writable');
+              }
+            }
+
+            await NfcManager.instance.stopSession();
+
+            if (mounted) {
+              Navigator.of(context).pop();
+              if (result['success']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Метка зарегистрирована и URL записан!')),
+                );
+                await _loadTags();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Ошибка: ${result['error']}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          } catch (e) {
+            await NfcManager.instance.stopSession();
+            if (mounted) {
+              Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tag registered successfully!')),
-              );
-              await _loadTags();
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to register tag: ${result['error']}'),
-                  backgroundColor: Colors.red,
-                ),
+                SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
               );
             }
           }
@@ -190,7 +245,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       );
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // Close dialog
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),

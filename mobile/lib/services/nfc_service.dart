@@ -44,7 +44,7 @@ class NFCService {
       if (response.statusCode == 201) {
         return {
           'success': true,
-          'tag': NFCTag.fromJson(response.data),
+          'tag': NFCTag.fromJson(response.data['tag']),
         };
       }
       return {'success': false, 'error': 'Failed to register tag'};
@@ -88,7 +88,7 @@ class NFCService {
   }
 
   /// Revoke NFC tag
-  Future<bool> revokeTag(int tagId, String? reason) async {
+  Future<bool> revokeTag(String tagId, String? reason) async {
     try {
       final response = await _api.post(
         ApiConfig.nfcRevoke,
