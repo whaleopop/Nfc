@@ -3,6 +3,9 @@ class ApiConfig {
   // Base URL - change this to your backend URL
   static const String baseUrl = 'https://testapi.soldium.ru';
 
+  // Frontend URL - used for NFC tag emergency links (opened in browser)
+  static const String frontendUrl = 'https://test.soldium.ru';
+
   // API endpoints
   static const String apiPrefix = '/api';
 

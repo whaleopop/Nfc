@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../models/nfc_tag.dart';
 import '../../services/nfc_service.dart';
+import '../../utils/api_config.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
 import 'package:nfc_manager/ndef_record.dart';
@@ -191,7 +192,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
 
             if (result['success']) {
               // 3. Write emergency URL to tag as NDEF URI record
-              final emergencyUrl = 'https://testapi.soldium.ru/emergency/$tagUid';
+              final emergencyUrl = '${ApiConfig.frontendUrl}/emergency/$tagUid';
               final ndef = NdefAndroid.from(tag);
               if (ndef != null && ndef.isWritable) {
                 try {
