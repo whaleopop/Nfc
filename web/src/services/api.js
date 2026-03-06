@@ -28,6 +28,9 @@ api.interceptors.request.use(
   }
 )
 
+// Singleton для refresh - чтобы не делать несколько refresh одновременно
+let refreshPromise = null
+
 // Interceptor для обработки ошибок и refresh токена
 api.interceptors.response.use(
   (response) => response,
@@ -44,11 +47,16 @@ api.interceptors.response.use(
           throw new Error('No refresh token')
         }
 
-        // Попытка обновить токен
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
-          refresh: refreshToken,
-        })
+        // Если refresh уже выполняется — ждём его результата
+        if (!refreshPromise) {
+          refreshPromise = axios
+            .post(`${API_BASE_URL}/auth/refresh/`, { refresh: refreshToken })
+            .finally(() => {
+              refreshPromise = null
+            })
+        }
 
+        const response = await refreshPromise
         const { access } = response.data
         localStorage.setItem('access_token', access)
 

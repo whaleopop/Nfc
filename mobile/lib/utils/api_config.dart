@@ -33,6 +33,6 @@ class ApiConfig {
   static String nfcEmergency(String tagUid) => '$apiPrefix/nfc/emergency/$tagUid/';
 
   // Timeout settings
-  static const Duration connectTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  static const Duration connectTimeout = Duration(seconds: 5);
+  static const Duration receiveTimeout = Duration(seconds: 5);
 }
