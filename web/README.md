@@ -111,7 +111,7 @@
 - **QRCode.react** - Генерация QR-кодов
 - **Date-fns** - Работа с датами
 - **Vite** - Сборщик
-
+sdsd
 ## Запуск
 
 ### Development
