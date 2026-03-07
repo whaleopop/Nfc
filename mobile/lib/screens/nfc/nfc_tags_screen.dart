@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../models/nfc_tag.dart';
 import '../../services/nfc_service.dart';
+import '../../services/profile_service.dart';
 import '../../utils/api_config.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/nfc_manager_android.dart';
@@ -177,21 +179,63 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
             final result = await _nfcService.registerTag(tagUid);
 
             if (result['success']) {
-              // 3. Write emergency URL to tag as NDEF URI record
+              // 3. Write NDEF records to tag:
+              //    - Record 1 (URI): opens app if installed, else browser
+              //    - Record 2 (Text): plain emergency note if no app/internet
               final emergencyUrl = '${ApiConfig.frontendUrl}/emergency/$tagUid';
               final ndef = NdefAndroid.from(tag);
               if (ndef != null && ndef.isWritable) {
                 try {
-                  // URI record: TNF=wellKnown, type='U', payload=[0x04, ...url without "https://"]
+                  // --- URI record ---
                   final urlWithoutScheme = emergencyUrl.replaceFirst('https://', '');
-                  final payload = Uint8List.fromList([0x04, ...urlWithoutScheme.codeUnits]);
+                  final uriPayload = Uint8List.fromList([0x04, ...urlWithoutScheme.codeUnits]);
                   final uriRecord = NdefRecord(
                     typeNameFormat: TypeNameFormat.wellKnown,
                     type: Uint8List.fromList([0x55]), // 'U'
                     identifier: Uint8List(0),
-                    payload: payload,
+                    payload: uriPayload,
                   );
-                  await ndef.writeNdefMessage(NdefMessage(records: [uriRecord]));
+
+                  // --- Text record: basic emergency info for offline fallback ---
+                  final profileService = ProfileService();
+                  final profile = await profileService.getProfile();
+                  final allergies = await profileService.getAllergies();
+                  final contacts = await profileService.getEmergencyContacts();
+
+                  final buffer = StringBuffer();
+                  buffer.writeln('=== ЭКСТРЕННАЯ МЕДКАРТА ===');
+                  if (profile != null) {
+                    if (profile.bloodType != null && profile.bloodType!.isNotEmpty) {
+                      buffer.writeln('Группа крови: ${profile.bloodType}');
+                    }
+                  }
+                  final severeAllergies = allergies.where((a) =>
+                      a.severity == 'SEVERE' || a.severity == 'LIFE_THREATENING').toList();
+                  if (severeAllergies.isNotEmpty) {
+                    buffer.writeln('АЛЛЕРГИИ: ${severeAllergies.map((a) => a.allergen).join(', ')}');
+                  }
+                  if (contacts.isNotEmpty) {
+                    final c = contacts.first;
+                    buffer.writeln('Контакт: ${c.name} ${c.phone}');
+                  }
+                  buffer.write('Данные: $emergencyUrl');
+
+                  final textStr = buffer.toString();
+                  final langCode = utf8.encode('ru');
+                  final textBytes = utf8.encode(textStr);
+                  final textPayload = Uint8List.fromList([
+                    langCode.length, // status byte: UTF-8, lang length = 2
+                    ...langCode,
+                    ...textBytes,
+                  ]);
+                  final textRecord = NdefRecord(
+                    typeNameFormat: TypeNameFormat.wellKnown,
+                    type: Uint8List.fromList([0x54]), // 'T'
+                    identifier: Uint8List(0),
+                    payload: textPayload,
+                  );
+
+                  await ndef.writeNdefMessage(NdefMessage(records: [uriRecord, textRecord]));
                 } catch (_) {
                   // write failed — tag still registered in backend
                 }
