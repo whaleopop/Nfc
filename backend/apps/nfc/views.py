@@ -90,7 +90,7 @@ class NFCTagRegisterView(APIView):
             'tag': NFCTagSerializer(nfc_tag).data,
             'nfc_data': {
                 'tag_id': str(nfc_tag.id),
-                'public_key_id': public_key_id,
+                'public_key_id': nfc_tag.public_key_id,
                 'checksum': nfc_tag.checksum
             },
             'message': 'NFC метка успешно зарегистрирована'

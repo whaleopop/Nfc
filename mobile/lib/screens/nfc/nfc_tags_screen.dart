@@ -19,6 +19,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
   List<NFCTag> _tags = [];
   bool _isLoading = true;
   bool _isNFCAvailable = false;
+  bool _isTagProcessing = false; // guard against multiple onDiscovered firings
   final List<String> _debugLogs = [];
 
   void _addLog(String log) {
@@ -190,6 +191,8 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           NfcPollingOption.iso15693,
         },
         onDiscovered: (NfcTag tag) async {
+          if (_isTagProcessing) return;
+          _isTagProcessing = true;
           try {
             // 1. Extract real UID from tag via NfcTagAndroid
             String? tagUid;
@@ -268,6 +271,8 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                 SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
               );
             }
+          } finally {
+            _isTagProcessing = false;
           }
         },
       );
