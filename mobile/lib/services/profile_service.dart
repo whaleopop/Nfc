@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../models/medical_profile.dart';
 import '../utils/api_config.dart';
 import 'api_service.dart';
@@ -10,12 +9,16 @@ class ProfileService {
   /// Get current user's profile
   Future<MedicalProfile?> getProfile() async {
     try {
+      print('[ProfileService] GET ${ApiConfig.profile}');
       final response = await _api.get(ApiConfig.profile);
+      print('[ProfileService] profile status: ${response.statusCode}');
+      print('[ProfileService] profile data: ${response.data}');
       if (response.statusCode == 200 && response.data != null) {
         return MedicalProfile.fromJson(response.data);
       }
       return null;
     } catch (e) {
+      print('[ProfileService] getProfile error: $e');
       return null;
     }
   }
@@ -48,29 +51,30 @@ class ProfileService {
     }
   }
 
-  Future<bool> addAllergy(Allergy allergy) async {
+  Future<Allergy?> addAllergy(Allergy allergy) async {
     try {
-      final response =
-          await _api.post(ApiConfig.allergies, data: allergy.toJson());
-      return response.statusCode == 201;
-    } on DioException {
-      return false;
+      final response = await _api.post(ApiConfig.allergies, data: allergy.toJson());
+      if (response.statusCode == 201) return Allergy.fromJson(response.data);
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 
-  Future<bool> updateAllergy(Allergy allergy) async {
+  Future<Allergy?> updateAllergy(Allergy allergy) async {
     try {
       final response = await _api.put(
         '${ApiConfig.allergies}${allergy.id}/',
         data: allergy.toJson(),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return Allergy.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> deleteAllergy(int id) async {
+  Future<bool> deleteAllergy(String id) async {
     try {
       final response = await _api.delete('${ApiConfig.allergies}$id/');
       return response.statusCode == 204;
@@ -84,9 +88,7 @@ class ProfileService {
     try {
       final response = await _api.get(ApiConfig.chronicDiseases);
       if (response.statusCode == 200 && response.data is List) {
-        return (response.data as List)
-            .map((d) => ChronicDisease.fromJson(d))
-            .toList();
+        return (response.data as List).map((d) => ChronicDisease.fromJson(d)).toList();
       }
       return [];
     } catch (e) {
@@ -94,29 +96,30 @@ class ProfileService {
     }
   }
 
-  Future<bool> addChronicDisease(ChronicDisease disease) async {
+  Future<ChronicDisease?> addChronicDisease(ChronicDisease disease) async {
     try {
-      final response =
-          await _api.post(ApiConfig.chronicDiseases, data: disease.toJson());
-      return response.statusCode == 201;
+      final response = await _api.post(ApiConfig.chronicDiseases, data: disease.toJson());
+      if (response.statusCode == 201) return ChronicDisease.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> updateChronicDisease(ChronicDisease disease) async {
+  Future<ChronicDisease?> updateChronicDisease(ChronicDisease disease) async {
     try {
       final response = await _api.put(
         '${ApiConfig.chronicDiseases}${disease.id}/',
         data: disease.toJson(),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return ChronicDisease.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> deleteChronicDisease(int id) async {
+  Future<bool> deleteChronicDisease(String id) async {
     try {
       final response = await _api.delete('${ApiConfig.chronicDiseases}$id/');
       return response.statusCode == 204;
@@ -130,9 +133,7 @@ class ProfileService {
     try {
       final response = await _api.get(ApiConfig.medications);
       if (response.statusCode == 200 && response.data is List) {
-        return (response.data as List)
-            .map((m) => Medication.fromJson(m))
-            .toList();
+        return (response.data as List).map((m) => Medication.fromJson(m)).toList();
       }
       return [];
     } catch (e) {
@@ -140,29 +141,30 @@ class ProfileService {
     }
   }
 
-  Future<bool> addMedication(Medication medication) async {
+  Future<Medication?> addMedication(Medication medication) async {
     try {
-      final response =
-          await _api.post(ApiConfig.medications, data: medication.toJson());
-      return response.statusCode == 201;
+      final response = await _api.post(ApiConfig.medications, data: medication.toJson());
+      if (response.statusCode == 201) return Medication.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> updateMedication(Medication medication) async {
+  Future<Medication?> updateMedication(Medication medication) async {
     try {
       final response = await _api.put(
         '${ApiConfig.medications}${medication.id}/',
         data: medication.toJson(),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return Medication.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> deleteMedication(int id) async {
+  Future<bool> deleteMedication(String id) async {
     try {
       final response = await _api.delete('${ApiConfig.medications}$id/');
       return response.statusCode == 204;
@@ -176,9 +178,7 @@ class ProfileService {
     try {
       final response = await _api.get(ApiConfig.emergencyContacts);
       if (response.statusCode == 200 && response.data is List) {
-        return (response.data as List)
-            .map((c) => EmergencyContact.fromJson(c))
-            .toList();
+        return (response.data as List).map((c) => EmergencyContact.fromJson(c)).toList();
       }
       return [];
     } catch (e) {
@@ -186,29 +186,30 @@ class ProfileService {
     }
   }
 
-  Future<bool> addEmergencyContact(EmergencyContact contact) async {
+  Future<EmergencyContact?> addEmergencyContact(EmergencyContact contact) async {
     try {
-      final response =
-          await _api.post(ApiConfig.emergencyContacts, data: contact.toJson());
-      return response.statusCode == 201;
+      final response = await _api.post(ApiConfig.emergencyContacts, data: contact.toJson());
+      if (response.statusCode == 201) return EmergencyContact.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> updateEmergencyContact(EmergencyContact contact) async {
+  Future<EmergencyContact?> updateEmergencyContact(EmergencyContact contact) async {
     try {
       final response = await _api.put(
         '${ApiConfig.emergencyContacts}${contact.id}/',
         data: contact.toJson(),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return EmergencyContact.fromJson(response.data);
+      return null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  Future<bool> deleteEmergencyContact(int id) async {
+  Future<bool> deleteEmergencyContact(String id) async {
     try {
       final response = await _api.delete('${ApiConfig.emergencyContacts}$id/');
       return response.statusCode == 204;

@@ -156,6 +156,29 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       );
     }
 
+    // Enforce max 3 active tags — auto-revoke oldest if needed
+    final activeTags = _tags.where((t) => t.isActive).toList();
+    if (activeTags.length >= 3) {
+      activeTags.sort((a, b) =>
+          (a.registeredAt ?? DateTime(0)).compareTo(b.registeredAt ?? DateTime(0)));
+      final oldest = activeTags.first;
+      _addLog('Лимит 3 метки: отзываем старейшую ${oldest.tagUid}');
+      final revoked = await _nfcService.revokeTag(oldest.id!, 'auto: превышен лимит 3 метки');
+      if (!revoked) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не удалось отозвать старую метку'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      _addLog('Старая метка отозвана: ${oldest.tagUid}');
+      await _loadTags();
+    }
+
     try {
       await NfcManager.instance.startSession(
         pollingOptions: {
@@ -408,7 +431,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: NFCTagStatus.getColor(tag.status).withOpacity(0.2),
+                    color: NFCTagStatus.getColor(tag.status).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

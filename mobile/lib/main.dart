@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:app_links/app_links.dart';
 import 'providers/auth_provider.dart';
 import 'providers/profile_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/nfc/nfc_tags_screen.dart';
+import 'screens/emergency/emergency_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,8 +24,46 @@ void main() async {
   runApp(const NFCMedicalApp());
 }
 
-class NFCMedicalApp extends StatelessWidget {
+class NFCMedicalApp extends StatefulWidget {
   const NFCMedicalApp({super.key});
+
+  @override
+  State<NFCMedicalApp> createState() => _NFCMedicalAppState();
+}
+
+class _NFCMedicalAppState extends State<NFCMedicalApp> {
+  late final AppLinks _appLinks;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  void _initDeepLinks() {
+    _appLinks = AppLinks();
+
+    // Handle link that launched the app from a cold start
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleDeepLink(uri);
+    });
+
+    // Handle links while the app is already running
+    _appLinks.uriLinkStream.listen(_handleDeepLink);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    // Match https://test.soldium.ru/emergency/{tagUid}
+    final segments = uri.pathSegments;
+    if (segments.length >= 2 && segments[segments.length - 2] == 'emergency') {
+      final tagUid = segments.last;
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => EmergencyScreen(tagUid: tagUid),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +74,7 @@ class NFCMedicalApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'NFC Medical',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

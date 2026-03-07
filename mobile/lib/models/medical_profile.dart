@@ -1,9 +1,10 @@
 /// Medical Profile model matching Django backend
 class MedicalProfile {
-  final int? id;
+  final String? id;
   final String? bloodType;
   final double? height;
   final double? weight;
+  final String? emergencyNotes;
   final List<Allergy> allergies;
   final List<ChronicDisease> chronicDiseases;
   final List<Medication> medications;
@@ -14,6 +15,7 @@ class MedicalProfile {
     this.bloodType,
     this.height,
     this.weight,
+    this.emergencyNotes,
     this.allergies = const [],
     this.chronicDiseases = const [],
     this.medications = const [],
@@ -24,8 +26,9 @@ class MedicalProfile {
     return MedicalProfile(
       id: json['id'],
       bloodType: json['blood_type'],
-      height: json['height']?.toDouble(),
-      weight: json['weight']?.toDouble(),
+      height: json['height'] != null ? double.tryParse(json['height'].toString()) : null,
+      weight: json['weight'] != null ? double.tryParse(json['weight'].toString()) : null,
+      emergencyNotes: json['emergency_notes'],
       allergies: (json['allergies'] as List?)
               ?.map((a) => Allergy.fromJson(a))
               .toList() ??
@@ -51,13 +54,14 @@ class MedicalProfile {
       'blood_type': bloodType,
       'height': height,
       'weight': weight,
+      'emergency_notes': emergencyNotes,
     };
   }
 }
 
 /// Allergy model
 class Allergy {
-  final int? id;
+  final String? id;
   final String allergen;
   final String severity;
   final String? reaction;
@@ -101,7 +105,7 @@ class Allergy {
 
 /// Chronic Disease model
 class ChronicDisease {
-  final int? id;
+  final String? id;
   final String diseaseName;
   final String? icdCode;
   final DateTime? diagnosisDate;
@@ -145,7 +149,7 @@ class ChronicDisease {
 
 /// Medication model
 class Medication {
-  final int? id;
+  final String? id;
   final String medicationName;
   final String? dosage;
   final String? frequency;
@@ -198,7 +202,7 @@ class Medication {
 
 /// Emergency Contact model
 class EmergencyContact {
-  final int? id;
+  final String? id;
   final String name;
   final String relationship;
   final String phone;
@@ -215,9 +219,9 @@ class EmergencyContact {
   factory EmergencyContact.fromJson(Map<String, dynamic> json) {
     return EmergencyContact(
       id: json['id'],
-      name: json['name'],
-      relationship: json['relationship'],
-      phone: json['phone'],
+      name: json['full_name'] ?? json['name'] ?? '',
+      relationship: json['relationship'] ?? '',
+      phone: json['phone'] ?? '',
       priority: json['priority'] ?? 1,
     );
   }
@@ -225,7 +229,7 @@ class EmergencyContact {
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
-      'name': name,
+      'full_name': name,
       'relationship': relationship,
       'phone': phone,
       'priority': priority,

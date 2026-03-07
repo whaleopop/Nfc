@@ -28,14 +28,24 @@ class ApiService {
     ));
   }
 
+  // Public endpoints that must NOT have an auth header
+  static const _publicPaths = [
+    ApiConfig.login,
+    ApiConfig.register,
+    ApiConfig.refresh,
+  ];
+
   /// Add auth token to requests
   Future<void> _onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await _storage.read(key: 'access_token');
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
+    final isPublic = _publicPaths.any((p) => options.path.endsWith(p));
+    if (!isPublic) {
+      final token = await _storage.read(key: 'access_token');
+      if (token != null) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
     }
     handler.next(options);
   }
@@ -70,7 +80,18 @@ class ApiService {
       final refreshToken = await _storage.read(key: 'refresh_token');
       if (refreshToken == null) return false;
 
-      final response = await _dio.post(
+      // Use a clean Dio instance WITHOUT interceptors to avoid infinite loop
+      final cleanDio = Dio(BaseOptions(
+        baseUrl: ApiConfig.baseUrl,
+        connectTimeout: ApiConfig.connectTimeout,
+        receiveTimeout: ApiConfig.receiveTimeout,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ));
+
+      final response = await cleanDio.post(
         ApiConfig.refresh,
         data: {'refresh': refreshToken},
       );
@@ -80,8 +101,10 @@ class ApiService {
         await _storage.write(key: 'access_token', value: newAccessToken);
         return true;
       }
+      await clearTokens();
       return false;
     } catch (e) {
+      await clearTokens();
       return false;
     }
   }
