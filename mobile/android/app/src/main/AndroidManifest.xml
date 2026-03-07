@@ -28,7 +28,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep link: open app when NFC/QR emergency URL is scanned -->
+            <!-- NFC tag scan: open app directly when NFC tag is physically scanned -->
+            <!-- NDEF_DISCOVERED does NOT require assetlinks.json domain verification -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:scheme="https"
+                    android:host="test.soldium.ru"
+                    android:pathPrefix="/emergency/" />
+            </intent-filter>
+
+            <!-- Deep link: open app when URL is tapped in browser/messenger (requires assetlinks.json) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
