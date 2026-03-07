@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -32,6 +32,13 @@ function Dashboard() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [anchorEl, setAnchorEl] = useState(null)
+
+  // Doctors/admins go to patient management
+  useLayoutEffect(() => {
+    if (user && user.role !== 'PATIENT') {
+      navigate('/patients', { replace: true })
+    }
+  }, [user, navigate])
   const [stats, setStats] = useState({
     nfcTags: 0,
     activeAccess: 0,

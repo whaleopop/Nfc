@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Box } from '@mui/material'
+import { useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -8,6 +9,8 @@ import Profile from './pages/Profile'
 import NFCManagement from './pages/NFCManagement'
 import AdminPanel from './pages/AdminPanel'
 import EmergencyAccess from './pages/EmergencyAccess'
+import DoctorDashboard from './pages/DoctorDashboard'
+import PatientProfile from './pages/PatientProfile'
 
 function App() {
   return (
@@ -48,6 +51,23 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Doctor-only routes */}
+        <Route
+          path="/patients"
+          element={
+            <ProtectedRoute requireRole={['MEDICAL_WORKER', 'ADMIN', 'SUPER_ADMIN']}>
+              <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patients/:userId"
+          element={
+            <ProtectedRoute requireRole={['MEDICAL_WORKER', 'ADMIN', 'SUPER_ADMIN']}>
+              <PatientProfile />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/emergency/:tagId" element={<EmergencyAccess />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -55,7 +75,6 @@ function App() {
   )
 }
 
-// Temporary Home Page
 function HomePage() {
   return (
     <Box

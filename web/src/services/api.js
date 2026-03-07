@@ -188,6 +188,43 @@ export const nfcAPI = {
   getEmergencyData: (tagId) => axios.get(`${API_BASE_URL}/nfc/emergency/${tagId}/`),
 }
 
+// Doctor API (MEDICAL_WORKER / ADMIN only — manage patient data)
+export const doctorAPI = {
+  // List all patients (optional ?search=query)
+  getPatients: (search = '') =>
+    api.get('/profiles/patients/', { params: search ? { search } : {} }),
+
+  // Get a patient's medical profile
+  getPatientProfile: (userId) => api.get(`/profiles/patients/${userId}/profile/`),
+
+  // Update a patient's medical profile
+  updatePatientProfile: (userId, data) => api.put(`/profiles/patients/${userId}/profile/`, data),
+
+  // Allergies
+  getPatientAllergies: (userId) => api.get(`/profiles/patients/${userId}/allergies/`),
+  addPatientAllergy: (userId, data) => api.post(`/profiles/patients/${userId}/allergies/`, data),
+  updatePatientAllergy: (userId, id, data) => api.put(`/profiles/patients/${userId}/allergies/${id}/`, data),
+  deletePatientAllergy: (userId, id) => api.delete(`/profiles/patients/${userId}/allergies/${id}/`),
+
+  // Chronic diseases
+  getPatientDiseases: (userId) => api.get(`/profiles/patients/${userId}/chronic-diseases/`),
+  addPatientDisease: (userId, data) => api.post(`/profiles/patients/${userId}/chronic-diseases/`, data),
+  updatePatientDisease: (userId, id, data) => api.put(`/profiles/patients/${userId}/chronic-diseases/${id}/`, data),
+  deletePatientDisease: (userId, id) => api.delete(`/profiles/patients/${userId}/chronic-diseases/${id}/`),
+
+  // Medications
+  getPatientMedications: (userId) => api.get(`/profiles/patients/${userId}/medications/`),
+  addPatientMedication: (userId, data) => api.post(`/profiles/patients/${userId}/medications/`, data),
+  updatePatientMedication: (userId, id, data) => api.put(`/profiles/patients/${userId}/medications/${id}/`, data),
+  deletePatientMedication: (userId, id) => api.delete(`/profiles/patients/${userId}/medications/${id}/`),
+
+  // Emergency contacts
+  getPatientContacts: (userId) => api.get(`/profiles/patients/${userId}/emergency-contacts/`),
+  addPatientContact: (userId, data) => api.post(`/profiles/patients/${userId}/emergency-contacts/`, data),
+  updatePatientContact: (userId, id, data) => api.put(`/profiles/patients/${userId}/emergency-contacts/${id}/`, data),
+  deletePatientContact: (userId, id) => api.delete(`/profiles/patients/${userId}/emergency-contacts/${id}/`),
+}
+
 // Audit API
 export const auditAPI = {
   // Получить все логи аудита (только для админов)
