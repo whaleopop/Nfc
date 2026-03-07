@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Show error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.error ?? 'Login failed'),
+            content: Text(authProvider.error ?? 'Ошибка входа'),
             backgroundColor: Colors.red,
           ),
         );
@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Emergency Medical Access',
+                          'Экстренный доступ к медданным',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[600],
                               ),
@@ -108,10 +108,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
+                              return 'Введите email';
                             }
                             if (!value.contains('@')) {
-                              return 'Please enter a valid email';
+                              return 'Введите корректный email';
                             }
                             return null;
                           },
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: 'Пароль',
                             prefixIcon: const Icon(Icons.lock),
                             border: const OutlineInputBorder(),
                             suffixIcon: IconButton(
@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
+                              return 'Введите пароль';
                             }
                             return null;
                           },
@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                         ),
                                       )
-                                    : const Text('Login'),
+                                    : const Text('Войти'),
                               ),
                             );
                           },
@@ -175,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
                           },
-                          child: const Text("Don't have an account? Register"),
+                          child: const Text('Нет аккаунта? Зарегистрироваться'),
                         ),
                       ],
                     ),

@@ -20,17 +20,6 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
   bool _isLoading = true;
   bool _isNFCAvailable = false;
   bool _isTagProcessing = false; // guard against multiple onDiscovered firings
-  final List<String> _debugLogs = [];
-
-  void _addLog(String log) {
-    setState(() {
-      _debugLogs.add('${DateTime.now().toString().substring(11, 19)}: $log');
-      if (_debugLogs.length > 50) {
-        _debugLogs.removeAt(0);
-      }
-    });
-    print(log);
-  }
 
   @override
   void initState() {
@@ -41,13 +30,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
 
   Future<void> _checkNFCAvailability() async {
     try {
-      _addLog('Checking NFC availability...');
       final availability = await NfcManager.instance.checkAvailability();
-      _addLog('NFC availability result: $availability');
-      _addLog('NFC availability index: ${availability.index}');
-      _addLog('NFC availability name: ${availability.name}');
-
-      // Check by name, not index, as different platforms may have different enum orders
       final isEnabled = availability.name == 'enabled' || availability.name == 'available';
       final isDisabled = availability.name == 'disabled';
 
@@ -55,44 +38,25 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
         _isNFCAvailable = isEnabled;
       });
 
-      String message = '';
-      if (isEnabled) {
-        message = 'NFC is available and ready';
-      } else if (isDisabled) {
-        message = 'NFC is disabled. Please enable it in Settings → Connected devices → NFC';
-      } else {
-        message = 'NFC is not supported on this device';
-      }
-
-      _addLog('NFC status: $message');
-
       if (!isEnabled && mounted) {
+        final message = isDisabled
+            ? 'NFC отключён. Включите его в Настройках → Подключённые устройства → NFC'
+            : 'NFC не поддерживается на этом устройстве';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             duration: const Duration(seconds: 5),
-            action: isDisabled
-                ? SnackBarAction(
-                    label: 'Open Settings',
-                    onPressed: () {
-                      // TODO: Open NFC settings
-                    },
-                  )
-                : null,
           ),
         );
       }
-    } catch (e, stackTrace) {
-      _addLog('NFC check error: $e');
-      _addLog('Stack trace: $stackTrace');
+    } catch (e) {
       setState(() {
         _isNFCAvailable = false;
       });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error checking NFC: $e'),
+            content: Text('Ошибка проверки NFC: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -101,17 +65,14 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
   }
 
   Future<void> _loadTags() async {
-    _addLog('Loading NFC tags from API...');
     setState(() => _isLoading = true);
     try {
       final tags = await _nfcService.getTags();
-      _addLog('Loaded ${tags.length} tags successfully');
       setState(() {
         _tags = tags;
         _isLoading = false;
       });
     } catch (e) {
-      _addLog('Error loading tags: $e');
       setState(() {
         _tags = [];
         _isLoading = false;
@@ -123,7 +84,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
     if (!_isNFCAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('NFC is not available on this device')),
+          const SnackBar(content: Text('NFC недоступен на этом устройстве')),
         );
       }
       return;
@@ -136,11 +97,9 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           (a.registeredAt ?? DateTime(0)).compareTo(b.registeredAt ?? DateTime(0)));
       // Revoke oldest ones until only 2 remain
       final toRevoke = activeTags.take(activeTags.length - 2).toList();
-      _addLog('Лимит 3 метки: отзываем ${toRevoke.length} лишних меток...');
       for (final tag in toRevoke) {
         final ok = await _nfcService.revokeTag(tag.id!, 'auto: превышен лимит 3 метки');
         if (!ok) {
-          _addLog('Не удалось отозвать: ${tag.tagUid}');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -151,7 +110,6 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           }
           return;
         }
-        _addLog('Отозвана: ${tag.tagUid}');
       }
       await _loadTags();
     }
@@ -162,13 +120,13 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Scan NFC Tag'),
+          title: const Text('Сканирование NFC'),
           content: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Hold your device near the NFC tag'),
+              Text('Поднесите устройство к NFC метке'),
             ],
           ),
           actions: [
@@ -177,7 +135,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                 NfcManager.instance.stopSession();
                 Navigator.of(context).pop();
               },
-              child: const Text('Cancel'),
+              child: const Text('Отмена'),
             ),
           ],
         ),
@@ -215,8 +173,6 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
               return;
             }
 
-            _addLog('Real tag UID: $tagUid');
-
             // 2. Register in backend
             final result = await _nfcService.registerTag(tagUid);
 
@@ -236,12 +192,9 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                     payload: payload,
                   );
                   await ndef.writeNdefMessage(NdefMessage(records: [uriRecord]));
-                  _addLog('URL written to tag: $emergencyUrl');
-                } catch (e) {
-                  _addLog('Warning: Could not write URL: $e');
+                } catch (_) {
+                  // write failed — tag still registered in backend
                 }
-              } else {
-                _addLog('Warning: Tag is not NDEF writable');
               }
             }
 
@@ -281,7 +234,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Ошибка: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -293,7 +246,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My NFC Tags'),
+        title: const Text('Мои NFC метки'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -307,62 +260,6 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       ),
       body: Column(
         children: [
-          // Debug logs panel
-          Container(
-            color: Colors.black87,
-            width: double.infinity,
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.grey[900],
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bug_report, color: Colors.orange, size: 16),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'DEBUG LOGS',
-                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.white, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            _debugLogs.clear();
-                          });
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(8),
-                    itemCount: _debugLogs.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          _debugLogs[index],
-                          style: const TextStyle(
-                            color: Colors.greenAccent,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Main content
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -385,7 +282,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _scanAndRegisterTag,
         icon: const Icon(Icons.nfc),
-        label: const Text('Register New Tag'),
+        label: const Text('Добавить метку'),
       ),
     );
   }
@@ -402,12 +299,12 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'No NFC Tags',
+            'Нет NFC меток',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'Register your first NFC tag to get started',
+            'Зарегистрируйте первую NFC метку для начала работы',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
                 ),
@@ -416,7 +313,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           ElevatedButton.icon(
             onPressed: _scanAndRegisterTag,
             icon: const Icon(Icons.nfc),
-            label: const Text('Register New Tag'),
+            label: const Text('Добавить метку'),
           ),
         ],
       ),
@@ -433,7 +330,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           child: const Icon(Icons.nfc, color: Colors.white),
         ),
         title: Text(
-          'Tag: ${tag.tagUid}',
+          'Метка: ${tag.tagUid}',
           style: const TextStyle(fontFamily: 'monospace'),
         ),
         subtitle: Column(
@@ -462,14 +359,14 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Scans: ${tag.scanCount}',
+                  'Сканирований: ${tag.scanCount}',
                   style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
             if (tag.registeredAt != null)
               Text(
-                'Registered: ${_formatDate(tag.registeredAt!)}',
+                'Зарегистрирована: ${_formatDate(tag.registeredAt!)}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
           ],
@@ -483,7 +380,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                       final success = await _nfcService.revokeTag(tag.id!, null);
                       if (success && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Tag revoked')),
+                          const SnackBar(content: Text('Метка отозвана')),
                         );
                         await _loadTags();
                       }
@@ -497,7 +394,7 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
                       children: [
                         Icon(Icons.block, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('Revoke Tag'),
+                        Text('Отозвать метку'),
                       ],
                     ),
                   ),
@@ -539,16 +436,10 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
 
     if (confirm != true) return;
 
-    _addLog('Отзываем ${activeTags.length} меток...');
     int failed = 0;
     for (final tag in activeTags) {
       final ok = await _nfcService.revokeTag(tag.id!, 'manual: revoke all');
-      if (!ok) {
-        failed++;
-        _addLog('Не удалось отозвать: ${tag.tagUid}');
-      } else {
-        _addLog('Отозвана: ${tag.tagUid}');
-      }
+      if (!ok) failed++;
     }
 
     await _loadTags();
@@ -572,17 +463,17 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Revoke Tag'),
-        content: const Text('Are you sure you want to revoke this NFC tag?'),
+        title: const Text('Отозвать метку'),
+        content: const Text('Вы уверены, что хотите отозвать эту NFC метку?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Отмена'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Revoke'),
+            child: const Text('Отозвать'),
           ),
         ],
       ),
