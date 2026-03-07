@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,9 @@ import 'services/nfc_service.dart';
 import 'services/profile_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Stores an initial deep-link URI (cold start) so SplashScreen can navigate to it.
+Uri? _pendingInitialUri;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +39,8 @@ class NFCMedicalApp extends StatefulWidget {
 
 class _NFCMedicalAppState extends State<NFCMedicalApp> {
   late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSub;
+  Uri? _initialUri; // track initial link to avoid double-push from uriLinkStream
 
   @override
   void initState() {
@@ -42,16 +48,32 @@ class _NFCMedicalAppState extends State<NFCMedicalApp> {
     _initDeepLinks();
   }
 
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
   void _initDeepLinks() {
     _appLinks = AppLinks();
 
-    // Handle link that launched the app from a cold start
+    // Cold start: store the URI for SplashScreen to consume after it's built.
+    // Do NOT navigate here — navigatorKey.currentState is still null at this point.
     _appLinks.getInitialLink().then((uri) {
-      if (uri != null) _handleDeepLink(uri);
+      if (uri != null) {
+        _initialUri = uri;
+        _pendingInitialUri = uri;
+      }
     });
 
-    // Handle links while the app is already running
-    _appLinks.uriLinkStream.listen(_handleDeepLink);
+    // Foreground: app already running — navigate immediately.
+    // Filter the initial URI (Android may emit it on the stream too).
+    _linkSub = _appLinks.uriLinkStream.listen((uri) {
+      if (uri != _initialUri) {
+        _handleDeepLink(uri);
+      }
+      _initialUri = null;
+    });
   }
 
   void _handleDeepLink(Uri uri) {
@@ -142,6 +164,21 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
 
     if (mounted) {
+      // If app was opened via NFC tag / deep link from a cold start, go directly
+      // to the EmergencyScreen — no auth required for that public endpoint.
+      final pendingUri = _pendingInitialUri;
+      _pendingInitialUri = null;
+      if (pendingUri != null) {
+        final segments = pendingUri.pathSegments;
+        if (segments.length >= 2 && segments[segments.length - 2] == 'emergency') {
+          final tagUid = segments.last;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => EmergencyScreen(tagUid: tagUid)),
+          );
+          return;
+        }
+      }
+
       if (authProvider.isAuthenticated) {
         Navigator.of(context).pushReplacementNamed('/home');
       } else {

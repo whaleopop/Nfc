@@ -44,16 +44,17 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
       appBar: AppBar(
         backgroundColor: Colors.red[700],
         foregroundColor: Colors.white,
-        title: const Row(
-          children: [
-            Icon(Icons.emergency, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              'ЭКСТРЕННЫЙ ДОСТУП',
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-            ),
-          ],
+        title: const Text(
+          'ЭКСТРЕННЫЙ ДОСТУП',
+          style: TextStyle(fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
         ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(Icons.emergency, color: Colors.white),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
