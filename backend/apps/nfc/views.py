@@ -48,23 +48,35 @@ class NFCTagRegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Generate public key ID and checksum
-        public_key_id = str(uuid.uuid4())
         tag_uid = serializer.validated_data['tag_uid']
         tag_type = serializer.validated_data['tag_type']
 
-        # Create NFC tag
-        nfc_tag = NFCTag.objects.create(
-            user=request.user,
-            tag_uid=tag_uid,
-            tag_type=tag_type,
-            public_key_id=public_key_id,
-        )
-
-        # Generate checksum
-        data = f"{tag_uid}{public_key_id}"
-        nfc_tag.checksum = nfc_tag.generate_checksum(data)
-        nfc_tag.save()
+        # Reactivate existing revoked tag (same physical tag, same user)
+        existing = NFCTag.objects.filter(tag_uid=tag_uid, user=request.user).first()
+        if existing:
+            existing.status = 'ACTIVE'
+            existing.revoked_at = None
+            existing.revoked_reason = ''
+            existing.save(update_fields=['status', 'revoked_at', 'revoked_reason'])
+            nfc_tag = existing
+        else:
+            # Check if tag belongs to another user
+            if NFCTag.objects.filter(tag_uid=tag_uid).exists():
+                return Response(
+                    {'error': 'Эта метка зарегистрирована другим пользователем'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            # Create new NFC tag
+            public_key_id = str(uuid.uuid4())
+            nfc_tag = NFCTag.objects.create(
+                user=request.user,
+                tag_uid=tag_uid,
+                tag_type=tag_type,
+                public_key_id=public_key_id,
+            )
+            data = f"{tag_uid}{public_key_id}"
+            nfc_tag.checksum = nfc_tag.generate_checksum(data)
+            nfc_tag.save()
 
         # Log registration
         self._log_access(

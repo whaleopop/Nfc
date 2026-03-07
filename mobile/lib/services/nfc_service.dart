@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../models/nfc_tag.dart';
 import '../utils/api_config.dart';
 import 'api_service.dart';
@@ -24,22 +25,10 @@ class NFCService {
   /// Register new NFC tag
   Future<Map<String, dynamic>> registerTag(String tagUid) async {
     try {
-      print('Registering NFC tag: $tagUid');
-      print('Endpoint: ${ApiConfig.nfcRegister}');
-
-      final requestData = {
-        'tag_uid': tagUid,
-        'tag_type': 'NTAG215',
-      };
-      print('Request data: $requestData');
-
       final response = await _api.post(
         ApiConfig.nfcRegister,
-        data: requestData,
+        data: {'tag_uid': tagUid, 'tag_type': 'NTAG215'},
       );
-
-      print('Register response status: ${response.statusCode}');
-      print('Register response data: ${response.data}');
 
       if (response.statusCode == 201) {
         return {
@@ -48,22 +37,19 @@ class NFCService {
         };
       }
       return {'success': false, 'error': 'Failed to register tag'};
-    } on Exception catch (e) {
-      print('Register tag error: $e');
-      print('Error type: ${e.runtimeType}');
-
-      String errorMessage = e.toString();
-
-      // Try to extract meaningful error from Dio exception
-      final errorString = e.toString();
-      if (errorString.contains('Сначала создайте медицинский профиль') ||
-          errorString.contains('medical_profile') ||
-          errorString.contains('Medical profile')) {
-        errorMessage = 'Сначала создайте медицинский профиль в разделе "My Profile"';
-      } else if (errorString.contains('400')) {
-        errorMessage = 'Bad request - check if tag format is correct';
-      } else if (errorString.contains('401') || errorString.contains('Unauthorized')) {
-        errorMessage = 'Session expired. Please login again';
+    } catch (e) {
+      // Extract readable error from Dio response body
+      String errorMessage = 'Ошибка регистрации метки';
+      if (e is DioException && e.response != null) {
+        final data = e.response!.data;
+        if (data is Map) {
+          final messages = data.values
+              .map((v) => v is List ? v.join(', ') : v.toString())
+              .join(' | ');
+          if (messages.isNotEmpty) errorMessage = messages;
+        } else if (data is String && data.isNotEmpty) {
+          errorMessage = data;
+        }
       }
 
       return {'success': false, 'error': errorMessage};

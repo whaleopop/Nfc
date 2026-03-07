@@ -90,15 +90,21 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   }
 
   Widget _buildContent() {
-    final patient = _data?['patient'] as Map<String, dynamic>?;
-    final profile = _data?['medical_profile'] as Map<String, dynamic>?;
+    // Backend returns "user" and "profile" keys
+    final patient = (_data?['user'] ?? _data?['patient']) as Map<String, dynamic>?;
+    final profile = (_data?['profile'] ?? _data?['medical_profile']) as Map<String, dynamic>?;
 
     final firstName = patient?['first_name'] ?? '';
     final lastName = patient?['last_name'] ?? '';
     final middleName = patient?['middle_name'] ?? '';
-    final fullName = [lastName, firstName, middleName]
-        .where((s) => s.isNotEmpty)
-        .join(' ');
+    final fullName = patient?['full_name'] ??
+        [lastName, firstName, middleName].where((s) => s.isNotEmpty).join(' ');
+
+    // Data lists — backend may return at top-level OR nested in profile
+    final allergies = (profile?['allergies'] ?? _data?['allergies']) as List?;
+    final diseases = (profile?['chronic_diseases'] ?? _data?['diseases']) as List?;
+    final medications = (profile?['medications'] ?? _data?['medications']) as List?;
+    final contacts = (profile?['emergency_contacts'] ?? _data?['emergency_contacts']) as List?;
 
     return RefreshIndicator(
       onRefresh: _loadEmergencyData,
@@ -167,15 +173,14 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
           ],
 
           // Allergies
-          if (profile?['allergies'] != null &&
-              (profile!['allergies'] as List).isNotEmpty) ...[
+          if (allergies != null && allergies.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildCard(
               icon: Icons.warning,
               color: Colors.orange[700]!,
               title: 'Аллергии',
               child: Column(
-                children: (profile['allergies'] as List).map((a) {
+                children: allergies.map((a) {
                   final severity = a['severity'] ?? '';
                   return _buildAllergyRow(
                     a['allergen'] ?? '',
@@ -188,18 +193,19 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
           ],
 
           // Chronic diseases
-          if (profile?['chronic_diseases'] != null &&
-              (profile!['chronic_diseases'] as List).isNotEmpty) ...[
+          if (diseases != null && diseases.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildCard(
               icon: Icons.medical_information,
               color: Colors.purple[700]!,
               title: 'Хронические заболевания',
               child: Column(
-                children: (profile['chronic_diseases'] as List).map((d) {
+                children: diseases.map((d) {
                   return _buildListRow(
                     d['disease_name'] ?? '',
-                    subtitle: d['icd_code'] != null ? 'МКБ: ${d['icd_code']}' : null,
+                    subtitle: d['icd_code'] != null && (d['icd_code'] as String).isNotEmpty
+                        ? 'МКБ: ${d['icd_code']}'
+                        : null,
                   );
                 }).toList(),
               ),
@@ -207,37 +213,35 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
           ],
 
           // Medications
-          if (profile?['medications'] != null &&
-              (profile!['medications'] as List).isNotEmpty) ...[
+          if (medications != null && medications.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildCard(
               icon: Icons.medication,
               color: Colors.teal[700]!,
               title: 'Препараты',
               child: Column(
-                children: (profile['medications'] as List)
+                children: medications
                     .where((m) => m['is_active'] == true)
                     .map((m) {
-                  final dosage = m['dosage'] != null ? ', ${m['dosage']}' : '';
+                  final dosage = m['dosage'] != null && (m['dosage'] as String).isNotEmpty
+                      ? ', ${m['dosage']}'
+                      : '';
                   final freq = m['frequency'] != null ? ', ${m['frequency']}' : '';
-                  return _buildListRow(
-                    '${m['medication_name']}$dosage$freq',
-                  );
+                  return _buildListRow('${m['medication_name']}$dosage$freq');
                 }).toList(),
               ),
             ),
           ],
 
           // Emergency contacts
-          if (profile?['emergency_contacts'] != null &&
-              (profile!['emergency_contacts'] as List).isNotEmpty) ...[
+          if (contacts != null && contacts.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildCard(
               icon: Icons.contacts,
               color: Colors.green[700]!,
               title: 'Экстренные контакты',
               child: Column(
-                children: (profile['emergency_contacts'] as List).map((c) {
+                children: contacts.map((c) {
                   return _buildContactRow(
                     c['full_name'] ?? c['name'] ?? '',
                     c['relationship'] ?? '',

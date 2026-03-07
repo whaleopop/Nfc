@@ -33,9 +33,9 @@ class NFCTagRegisterSerializer(serializers.Serializer):
     tag_type = serializers.CharField(max_length=50, default='NTAG215')
 
     def validate_tag_uid(self, value):
-        """Check if tag_uid already exists"""
-        if NFCTag.objects.filter(tag_uid=value).exists():
-            raise serializers.ValidationError('Эта метка уже зарегистрирована')
+        """Block only if tag is currently ACTIVE; revoked tags can be re-registered"""
+        if NFCTag.objects.filter(tag_uid=value, status='ACTIVE').exists():
+            raise serializers.ValidationError('Эта метка уже активно зарегистрирована')
         return value
 
 

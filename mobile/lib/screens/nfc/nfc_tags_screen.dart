@@ -128,6 +128,33 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
       return;
     }
 
+    // Enforce max 3 active tags — auto-revoke all excess (keep 2, new one makes 3)
+    final activeTags = _tags.where((t) => t.isActive).toList();
+    if (activeTags.length >= 3) {
+      activeTags.sort((a, b) =>
+          (a.registeredAt ?? DateTime(0)).compareTo(b.registeredAt ?? DateTime(0)));
+      // Revoke oldest ones until only 2 remain
+      final toRevoke = activeTags.take(activeTags.length - 2).toList();
+      _addLog('Лимит 3 метки: отзываем ${toRevoke.length} лишних меток...');
+      for (final tag in toRevoke) {
+        final ok = await _nfcService.revokeTag(tag.id!, 'auto: превышен лимит 3 метки');
+        if (!ok) {
+          _addLog('Не удалось отозвать: ${tag.tagUid}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Не удалось отозвать метку ${tag.tagUid}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+        _addLog('Отозвана: ${tag.tagUid}');
+      }
+      await _loadTags();
+    }
+
     // Show dialog to inform user to scan
     if (mounted) {
       showDialog(
@@ -154,29 +181,6 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
           ],
         ),
       );
-    }
-
-    // Enforce max 3 active tags — auto-revoke oldest if needed
-    final activeTags = _tags.where((t) => t.isActive).toList();
-    if (activeTags.length >= 3) {
-      activeTags.sort((a, b) =>
-          (a.registeredAt ?? DateTime(0)).compareTo(b.registeredAt ?? DateTime(0)));
-      final oldest = activeTags.first;
-      _addLog('Лимит 3 метки: отзываем старейшую ${oldest.tagUid}');
-      final revoked = await _nfcService.revokeTag(oldest.id!, 'auto: превышен лимит 3 метки');
-      if (!revoked) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не удалось отозвать старую метку'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-      _addLog('Старая метка отозвана: ${oldest.tagUid}');
-      await _loadTags();
     }
 
     try {
@@ -287,6 +291,14 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
         title: const Text('My NFC Tags'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        actions: [
+          if (_tags.any((t) => t.isActive))
+            IconButton(
+              icon: const Icon(Icons.delete_sweep),
+              tooltip: 'Отозвать все метки',
+              onPressed: _revokeAllTags,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -493,6 +505,62 @@ class _NFCTagsScreenState extends State<NFCTagsScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Future<void> _revokeAllTags() async {
+    final activeTags = _tags.where((t) => t.isActive).toList();
+    if (activeTags.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Отозвать все метки'),
+        content: Text(
+          'Вы уверены? Все ${activeTags.length} активных меток будут отозваны.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Отозвать все'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    _addLog('Отзываем ${activeTags.length} меток...');
+    int failed = 0;
+    for (final tag in activeTags) {
+      final ok = await _nfcService.revokeTag(tag.id!, 'manual: revoke all');
+      if (!ok) {
+        failed++;
+        _addLog('Не удалось отозвать: ${tag.tagUid}');
+      } else {
+        _addLog('Отозвана: ${tag.tagUid}');
+      }
+    }
+
+    await _loadTags();
+
+    if (mounted) {
+      final revoked = activeTags.length - failed;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failed == 0
+                ? 'Все метки отозваны ($revoked)'
+                : 'Отозвано $revoked из ${activeTags.length}',
+          ),
+          backgroundColor: failed == 0 ? null : Colors.orange,
+        ),
+      );
+    }
   }
 
   Future<bool?> _showRevokeDialog() {
