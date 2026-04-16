@@ -66,6 +66,11 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+      UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+      UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,10 +89,10 @@ jobs:
           channel: 'stable'
           architecture: x64
 
-      - name: Create keystore
+      - name: Decode keystore
         working-directory: mobile/android
         run: |
-          keytool -genkey -v -keystore upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown" -storepass password -keypass password -noprompt
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
 
       - name: Clean Flutter
         working-directory: mobile
