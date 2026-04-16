@@ -1,4 +1,4 @@
-package com.example.nfc_medical
+package com.whaleopop.nfcmedical
 
 import io.flutter.embedding.android.FlutterActivity
 
