@@ -84,6 +84,11 @@ jobs:
           channel: 'stable'
           architecture: x64
 
+      - name: Create keystore
+        working-directory: mobile/android
+        run: |
+          keytool -genkey -v -keystore upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=Unknown, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown" -storepass password -keypass password -noprompt
+
       - name: Clean Flutter
         working-directory: mobile
         run: flutter clean
