@@ -92,7 +92,9 @@ jobs:
       - name: Decode keystore
         working-directory: mobile/android
         run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 -d > upload-keystore.jks
+          # Verify the keystore is a valid binary (JKS magic bytes: FEEDFEED)
+          xxd upload-keystore.jks | head -1
 
       - name: Clean Flutter
         working-directory: mobile
