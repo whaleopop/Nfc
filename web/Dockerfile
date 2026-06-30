@@ -21,7 +21,8 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_APP_NAME=$VITE_APP_NAME
 ENV VITE_ENVIRONMENT=$VITE_ENVIRONMENT
 
-# Build the app
+# Build the app (limit Node heap for low-RAM servers)
+ENV NODE_OPTIONS=--max-old-space-size=512
 RUN npm run build
 
 # Production stage
