@@ -1,0 +1,233 @@
+name: Build and Deploy Frontend (GHCR)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'web/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/web-ghcr-deploy.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: nfc
+
+jobs:
+  build-frontend:
+    name: Build & Push Frontend Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend-nfc
+          tags: |
+            type=raw,value=latest
+            type=sha
+            type=ref,event=branch
+          labels: |
+            org.opencontainers.image.title=${{ env.IMAGE_NAME }}-frontend-nfc
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_APP_NAME=${{ secrets.VITE_APP_NAME }}
+            VITE_ENVIRONMENT=production
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-frontend:
+    needs: [ build-frontend ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          # Get short SHA (first 7 characters) to match Docker metadata action
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          cat <<EOF > .env
+          IMAGE_TAG=sha-${SHORT_SHA}
+          GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+
+          # Frontend environment variables
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          VITE_APP_NAME=${{ secrets.VITE_APP_NAME }}
+          VITE_ENVIRONMENT=production
+
+          # Database (for backend services)
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          # Redis
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          EOF
+          chmod 600 .env
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} -p 22 >> ~/.ssh/known_hosts
+
+      - name: Copy files to server
+        run: |
+          # Ensure SERVER_PATH is set, default to /root/nfc-app if not
+          SERVER_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$SERVER_PATH" ]; then
+            SERVER_PATH="/root/nfc-app"
+          fi
+
+          echo "Deploying to: $SERVER_PATH"
+
+          rsync -avz --delete -e "ssh -p 22" \
+            docker-compose.yml \
+            .env \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${SERVER_PATH}/
+
+      - name: Deploy Frontend via Docker Compose
+        run: |
+          # Set default path if SERVER_PATH is empty
+          SERVER_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$SERVER_PATH" ]; then
+            SERVER_PATH="/root/nfc-app"
+          fi
+
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash -s << 'ENDSSH'
+          set -euo pipefail
+
+          # Deployment path
+          DEPLOY_PATH="${{ secrets.SERVER_PATH }}"
+          if [ -z "$DEPLOY_PATH" ]; then
+            DEPLOY_PATH="/root/nfc-app"
+          fi
+
+          echo "🚀 Deploying frontend to: $DEPLOY_PATH"
+          cd "$DEPLOY_PATH"
+
+          # Check if Docker daemon is running
+          if ! docker info > /dev/null 2>&1; then
+            echo "❌ Docker daemon is not running!"
+            echo "Starting Docker daemon..."
+            sudo systemctl start docker || true
+            sleep 5
+
+            if ! docker info > /dev/null 2>&1; then
+              echo "❌ Failed to start Docker daemon"
+              exit 1
+            fi
+          fi
+          echo "✅ Docker daemon is running"
+
+          # Check Docker Compose v2
+          if ! docker compose version > /dev/null 2>&1; then
+            echo "⚠️ Docker Compose v2 not found, installing..."
+            curl -fsSL https://get.docker.com | sh
+          fi
+          echo "✅ Docker Compose version: $(docker compose version)"
+
+          echo "🛑 Stopping and removing existing frontend container..."
+          docker compose stop web || true
+          docker compose rm -f web || true
+
+          # Remove container by name if it still exists (fallback)
+          docker rm -f nfc_web 2>/dev/null || true
+
+          echo "🔐 Login to GHCR..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          echo "📥 Pulling latest frontend image..."
+          docker compose pull web --quiet
+
+          echo "🚀 Starting frontend container..."
+          docker compose up -d web --force-recreate
+
+          echo "⏳ Waiting for frontend container to be healthy..."
+          max_wait=30
+          counter=0
+          until [ "$(docker inspect -f '{{.State.Status}}' nfc_web 2>/dev/null)" == "running" ]; do
+            counter=$((counter + 1))
+            if [ $counter -gt $max_wait ]; then
+              echo "❌ Frontend container failed to start"
+              docker compose logs web
+              exit 1
+            fi
+            echo "Waiting for frontend container... ($counter/$max_wait)"
+            sleep 2
+          done
+          echo "✅ Frontend container is running"
+
+          echo "📋 Container status:"
+          docker compose ps web
+
+          echo "📝 Recent frontend logs:"
+          docker compose logs web --tail 20
+
+          echo "✅ Frontend deployed successfully"
+          
+          ENDSSH
+
+      - name: Cleanup old images
+        if: success()
+        run: |
+          echo "🧹 Cleaning up old Docker images on server..."
+          ssh -p 22 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            # Remove dangling images
+            docker image prune -f
+
+            # Remove old nfc-frontend images (keep latest 3)
+            docker images ghcr.io/${{ github.repository_owner }}/nfc-frontend-nfc --format "{{.ID}} {{.CreatedAt}}" | \
+              sort -rk 2 | tail -n +4 | awk '{print $1}' | xargs -r docker rmi -f || true
+
+            echo "✅ Cleanup completed"
+          ENDSSH
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Frontend deployment successful!"
+            echo "🌐 Available at: ${{ secrets.WEB_URL }}"
+            echo "🐳 Image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-frontend-nfc:sha-${SHORT_SHA}"
+          else
+            echo "❌ Frontend deployment failed!"
+          fi
