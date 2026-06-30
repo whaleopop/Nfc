@@ -49,7 +49,6 @@ function Profile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // Profile data
   const [profile, setProfile] = useState({
     blood_type: '',
     height: '',
@@ -57,25 +56,21 @@ function Profile() {
     emergency_notes: '',
   })
 
-  // Lists
   const [allergies, setAllergies] = useState([])
   const [diseases, setDiseases] = useState([])
   const [medications, setMedications] = useState([])
   const [emergencyContacts, setEmergencyContacts] = useState([])
 
-  // Dialog states
   const [allergyDialog, setAllergyDialog] = useState(false)
   const [diseaseDialog, setDiseaseDialog] = useState(false)
   const [medicationDialog, setMedicationDialog] = useState(false)
   const [contactDialog, setContactDialog] = useState(false)
 
-  // Editing states (null = adding new, object = editing existing)
   const [editingAllergy, setEditingAllergy] = useState(null)
   const [editingDisease, setEditingDisease] = useState(null)
   const [editingMedication, setEditingMedication] = useState(null)
   const [editingContact, setEditingContact] = useState(null)
 
-  // Form data for dialogs
   const [newAllergy, setNewAllergy] = useState({ allergen: '', severity: 'MODERATE', reaction: '' })
   const [newDisease, setNewDisease] = useState({ disease_name: '', diagnosis_date: '', notes: '' })
   const [newMedication, setNewMedication] = useState({
@@ -98,15 +93,12 @@ function Profile() {
     try {
       setLoading(true)
 
-      // Try to load profile
       let profileData = null
       try {
         const profileRes = await profileAPI.getProfile()
         profileData = profileRes.data
       } catch (error) {
-        // If profile doesn't exist (404), that's ok - we'll create it on first save
         if (error.response?.status === 404) {
-          console.log('Profile not found, will be created on first save')
           profileData = {
             blood_type: '',
             height: '',
@@ -142,7 +134,6 @@ function Profile() {
     try {
       setSaving(true)
 
-      // If profile has id, update it; otherwise create it
       let response
       if (profile.id) {
         response = await profileAPI.updateProfile(profile)
@@ -152,7 +143,6 @@ function Profile() {
         toast.success('Профиль создан')
       }
 
-      // Update profile with response data (including id for newly created profiles)
       setProfile(response.data)
     } catch (error) {
       toast.error(error.response?.data?.error || 'Ошибка сохранения профиля')

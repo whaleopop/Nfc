@@ -14,16 +14,13 @@ class ProfileProvider with ChangeNotifier {
   String? get error => _error;
 
   Future<void> loadProfile() async {
-    print('[ProfileProvider] loadProfile called');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       _profile = await _profileService.getProfile();
-      print('[ProfileProvider] profile loaded: ${_profile?.id}');
     } catch (e) {
-      print('[ProfileProvider] loadProfile error: $e');
       _error = 'Failed to load profile';
     }
 
@@ -39,7 +36,6 @@ class ProfileProvider with ChangeNotifier {
     final success = await _profileService.saveProfile(profile);
 
     if (success) {
-      // Reload to get full profile with nested lists
       _profile = await _profileService.getProfile() ?? profile;
       _error = null;
     } else {
@@ -50,8 +46,6 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
     return success;
   }
-
-  // ── Allergies ──────────────────────────────────────────────────────────────
 
   Future<bool> addAllergy(Allergy allergy) async {
     final created = await _profileService.addAllergy(allergy);
@@ -87,8 +81,6 @@ class ProfileProvider with ChangeNotifier {
     }
     return success;
   }
-
-  // ── Chronic Diseases ───────────────────────────────────────────────────────
 
   Future<bool> addChronicDisease(ChronicDisease disease) async {
     final created = await _profileService.addChronicDisease(disease);
@@ -127,8 +119,6 @@ class ProfileProvider with ChangeNotifier {
     return success;
   }
 
-  // ── Medications ────────────────────────────────────────────────────────────
-
   Future<bool> addMedication(Medication medication) async {
     final created = await _profileService.addMedication(medication);
     if (created != null && _profile != null) {
@@ -164,8 +154,6 @@ class ProfileProvider with ChangeNotifier {
     }
     return success;
   }
-
-  // ── Emergency Contacts ─────────────────────────────────────────────────────
 
   Future<bool> addEmergencyContact(EmergencyContact contact) async {
     final created = await _profileService.addEmergencyContact(contact);
@@ -203,8 +191,6 @@ class ProfileProvider with ChangeNotifier {
     }
     return success;
   }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
 
   MedicalProfile _copyWith({
     List<Allergy>? allergies,

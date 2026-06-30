@@ -2,28 +2,21 @@ import '../models/medical_profile.dart';
 import '../utils/api_config.dart';
 import 'api_service.dart';
 
-/// Profile Service for medical profile management
 class ProfileService {
   final ApiService _api = ApiService();
 
-  /// Get current user's profile
   Future<MedicalProfile?> getProfile() async {
     try {
-      print('[ProfileService] GET ${ApiConfig.profile}');
       final response = await _api.get(ApiConfig.profile);
-      print('[ProfileService] profile status: ${response.statusCode}');
-      print('[ProfileService] profile data: ${response.data}');
       if (response.statusCode == 200 && response.data != null) {
         return MedicalProfile.fromJson(response.data);
       }
       return null;
     } catch (e) {
-      print('[ProfileService] getProfile error: $e');
       return null;
     }
   }
 
-  /// Create or update profile
   Future<bool> saveProfile(MedicalProfile profile) async {
     try {
       final response = profile.id == null
@@ -36,7 +29,6 @@ class ProfileService {
     }
   }
 
-  // Allergies
   Future<List<Allergy>> getAllergies() async {
     try {
       final response = await _api.get(ApiConfig.allergies);
@@ -83,7 +75,6 @@ class ProfileService {
     }
   }
 
-  // Chronic Diseases
   Future<List<ChronicDisease>> getChronicDiseases() async {
     try {
       final response = await _api.get(ApiConfig.chronicDiseases);
@@ -128,7 +119,6 @@ class ProfileService {
     }
   }
 
-  // Medications
   Future<List<Medication>> getMedications() async {
     try {
       final response = await _api.get(ApiConfig.medications);
@@ -173,7 +163,6 @@ class ProfileService {
     }
   }
 
-  // Emergency Contacts
   Future<List<EmergencyContact>> getEmergencyContacts() async {
     try {
       final response = await _api.get(ApiConfig.emergencyContacts);
